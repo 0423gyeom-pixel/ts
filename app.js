@@ -1262,19 +1262,31 @@ ${questionPromptContext}
 `;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`, {
+    const requestUrl = state.apiKey
+      ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`
+      : `/api/analyze`;
+      
+    const requestBody = state.apiKey
+      ? {
+          contents: [{
+            parts: [{ text: prompt }]
+          }],
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
+        }
+      : {
+          contents: [{
+            parts: [{ text: prompt }]
+          }]
+        };
+
+    const response = await fetch(requestUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }]
-        }],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
-      })
+      body: JSON.stringify(requestBody)
     });
     
     if (!response.ok) {
@@ -1555,8 +1567,8 @@ function loadFavoriteQuestion(part, qId) {
 
 // 11. Gemini API 연동 신규 문제 자동 생성
 async function generateAiQuestion() {
-  if (!state.apiKey) {
-    alert("Gemini API Key가 등록되지 않았습니다. 사이드바 하단의 'Gemini 설정' 메뉴에서 등록해 주세요.");
+  if (!state.apiKey && window.location.protocol === 'file:') {
+    alert("로컬 파일 직접 실행 환경에서는 Gemini API Key 등록이 필수적입니다. 우측 하단의 톱니바퀴 설정 버튼을 눌러 등록해 주세요.");
     ui.settingsModal.classList.add('active');
     return;
   }
@@ -1688,19 +1700,31 @@ ${jsonFormatRequirements}
 `;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`, {
+    const requestUrl = state.apiKey
+      ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`
+      : `/api/analyze`;
+      
+    const requestBody = state.apiKey
+      ? {
+          contents: [{
+            parts: [{ text: prompt }]
+          }],
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
+        }
+      : {
+          contents: [{
+            parts: [{ text: prompt }]
+          }]
+        };
+
+    const response = await fetch(requestUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }]
-        }],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
-      })
+      body: JSON.stringify(requestBody)
     });
     
     if (!response.ok) {
