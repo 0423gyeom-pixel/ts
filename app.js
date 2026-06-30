@@ -381,13 +381,24 @@ function bindEvents() {
   ui.btnPlayAudio.addEventListener('click', () => {
     if (state.audioUrl) {
       const audio = new Audio(state.audioUrl);
-      audio.play();
-      ui.btnPlayAudio.disabled = true;
-      ui.btnPlayAudio.querySelector('span').textContent = '재생 중...';
-      audio.onended = () => {
-        ui.btnPlayAudio.disabled = false;
-        ui.btnPlayAudio.querySelector('span').textContent = '답변 듣기';
-      };
+      const playPromise = audio.play();
+      
+      if (playPromise !== undefined) {
+        ui.btnPlayAudio.disabled = true;
+        ui.btnPlayAudio.querySelector('span').textContent = '재생 중...';
+        
+        playPromise.then(() => {
+          audio.onended = () => {
+            ui.btnPlayAudio.disabled = false;
+            ui.btnPlayAudio.querySelector('span').textContent = '답변 듣기';
+          };
+        }).catch(err => {
+          console.warn("오디오 재생 거부 예외 감지:", err);
+          alert("이 모바일 환경 브라우저(인앱 등)에서는 음성 녹음 파일 재생 기능이 제한되거나 차단되었습니다. 모바일 Chrome/Safari 이용을 권장합니다.");
+          ui.btnPlayAudio.disabled = false;
+          ui.btnPlayAudio.querySelector('span').textContent = '답변 듣기';
+        });
+      }
     }
   });
   
@@ -1304,8 +1315,17 @@ ${questionPromptContext}
     });
     
     if (!response.ok) {
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("text/html")) {
+        throw new Error("서버가 HTML 에러 페이지를 반환했습니다. Vercel Dashboard의 'Environment Variables' 설정에서 GEMINI_API_KEY 환경변수 등록을 완료했는지 다시 점검해 주세요!");
+      }
       const errData = await response.json();
       throw new Error(errData.error?.message || errData.error || "HTTP 요청 오류가 발생했습니다.");
+    }
+    
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      throw new Error("서버 응답이 JSON이 아닙니다. Vercel 배포 상태 또는 API 키 등록을 점검해 주세요.");
     }
     
     const resData = await response.json();
@@ -1756,8 +1776,17 @@ ${jsonFormatRequirements}
     });
     
     if (!response.ok) {
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("text/html")) {
+        throw new Error("서버가 HTML 에러 페이지를 반환했습니다. Vercel Dashboard의 'Environment Variables' 설정에서 GEMINI_API_KEY 환경변수 등록을 완료했는지 다시 점검해 주세요!");
+      }
       const errData = await response.json();
       throw new Error(errData.error?.message || "Gemini 문제 생성 API 요청 중 HTTP 에러가 발생했습니다.");
+    }
+    
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      throw new Error("서버 응답이 JSON이 아닙니다. Vercel 배포 상태 또는 API 키 등록을 점검해 주세요.");
     }
     
     const resData = await response.json();
