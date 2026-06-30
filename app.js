@@ -1271,7 +1271,7 @@ async function requestAiFeedback() {
   
   const targetLevel = state.targetGoal;
   
-  // Gemini에 최적화된 프롬프트 작성
+  // Gemini에 최적화된 프롬프트 작성 (출력 토큰 단축 튜닝을 통해 Vercel 10초 타임아웃 절대 방지)
   const prompt = `
 당신은 대한민국 최고의 토익스피킹 채점관이자 영어 원어민 스피치 교정 전문가입니다.
 사용자가 제공한 음성인식(STT) 답변 텍스트를 보고 정밀 분석 리포트를 제공해 주세요.
@@ -1286,22 +1286,23 @@ ${questionPromptContext}
 "${targetLevel}" (토익스피킹 등급: IM/IH/AL/AH 중 하나)
 
 아래의 JSON 구조에 맞게 응답해 주세요. 마크다운 등의 백틱(\`\`\`) 코드 블록 표시 없이 오직 JSON 텍스트 자체만 반환해 주세요. JSON 포맷의 key를 명확히 유지하고 값은 한글로 작성해 주세요. (추천 답변 및 영어 문장은 영어로 작성)
+중요: 분석 속도 극대화를 위해 각 피드백 항목(pronunciationFeedback, structureFeedback, reason, modelAnswerTips)의 상세 설명은 구구절절 길게 적지 말고, 핵심만 요약하여 2문장 이내(최대한 콤팩트하고 짧게)로 신속히 답변해 주세요.
 
 ## JSON 응답 포맷 요구사항:
 {
   "pronunciationScore": [0에서 100 사이의 정수 점수],
-  "pronunciationFeedback": "[사용자의 발음 상태, 연음 처리 팁, 발음 교정이 필요한 구체적인 단어 목록을 한국어로 작성]",
-  "structureFeedback": "[답변의 구조적 일관성(예: 서론-본론-결론 구성 등)과 논리 전개 방식을 분석하고 개선 방향을 한국어로 조언]",
-  "highlightedTranscript": "[사용자가 말한 원본 답변 텍스트(userSpeechText)에 대해 문법적, 어휘적 오류가 있거나 어색한 단어/표현 부위를 반드시 HTML <span> 태그인 <span class='highlight-error' data-tooltip='올바른 교정 단어/구절 및 한국어 설명'>틀린부위</span> 로 감싸서 문맥 전체 흐름 그대로 완성한 HTML 문자열. 올바른 부분은 태그를 씌우지 않고 그대로 둡니다. data-tooltip 속성에는 친절하게 교정 가이드라인을 한국어로 명기해 주어야 합니다. 예: I <span class='highlight-error' data-tooltip='went (어제 일이므로 과거시제 사용)'>go</span> to high school yesterday.]",
+  "pronunciationFeedback": "[사용자의 발음 상태와 보완점을 핵심만 한글로 요약 작성]",
+  "structureFeedback": "[답변의 구조적 일관성과 개선 방향을 핵심만 한글로 요약 작성]",
+  "highlightedTranscript": "[사용자가 말한 원본 답변 텍스트(userSpeechText)에 대해 문법적, 어휘적 오류가 있거나 어색한 단어/표현 부위를 반드시 HTML <span> 태그인 <span class='highlight-error' data-tooltip='교정 가이드라인'>틀린부위</span> 로 감싸서 문맥 전체 흐름 그대로 완성한 HTML 문자열. 올바른 부분은 태그를 씌우지 않고 그대로 둡니다. data-tooltip 속성에는 간단한 교정 가이드를 한국어로 명기하세요. 예: I <span class='highlight-error' data-tooltip='went (과거시제 사용)'>go</span> to high school yesterday.]",
   "corrections": [
     {
       "original": "[틀리거나 부자연스러운 사용자 문장]",
       "corrected": "[문법적, 어휘적으로 완벽히 교정된 영어 문장]",
-      "reason": "[어떤 부분(시제, 수일치, 관사 등)이 잘못되었고 왜 고쳤는지 친절한 한국어 설명]"
+      "reason": "[어떤 부분이 잘못되었고 왜 고쳤는지 핵심만 1문장 한글로 설명]"
     }
   ],
   "modelAnswer": "[목표 등급인 ${targetLevel} 수준에 맞는 자연스럽고 훌륭한 모범 추천 영어 답변 전체 텍스트. 문항별 개별 연습 모드일 경우 해당 1개 문항(예: Q5만)의 답변을, 전체 세트 응시 모드일 경우 3개 문항 전체(Q5, Q6, Q7 또는 Q8, Q9, Q10)의 답변을 문항 번호와 함께 모두 작성할 것]",
-  "modelAnswerTips": "[추천 답변을 말할 때 고득점을 위해 유념해야 할 전달 방식, 강조해야 할 어휘, 답변에 사용된 핵심 구조 템플릿 한국어 설명]"
+  "modelAnswerTips": "[추천 답변에 사용된 핵심 구조 템플릿과 전달 팁을 핵심만 한글로 요약 작성]"
 }
 `;
 
@@ -1316,7 +1317,9 @@ ${questionPromptContext}
             parts: [{ text: prompt }]
           }],
           generationConfig: {
-            responseMimeType: "application/json"
+            responseMimeType: "application/json",
+            temperature: 0.1,
+            maxOutputTokens: 1024
           }
         }
       : {
