@@ -82,6 +82,30 @@ function blobToBase64(blob) {
   });
 }
 
+// AI 동적 생성 문제의 타이머 값 누락 방지를 위한 안전 기본 시간 주입 가드
+function sanitizeQuestionTimeData(data, part) {
+  if (!data) return;
+  
+  if (part === 'part1' || part === 'part2') {
+    if (typeof data.prepTime === 'undefined' || isNaN(parseInt(data.prepTime))) data.prepTime = 45;
+    if (typeof data.respTime === 'undefined' || isNaN(parseInt(data.respTime))) data.respTime = 45;
+  }
+  else if (part === 'part3' || part === 'part4') {
+    if (data.questions && Array.isArray(data.questions)) {
+      data.questions.forEach((q, idx) => {
+        if (typeof q.prepTime === 'undefined' || isNaN(parseInt(q.prepTime))) q.prepTime = 3;
+        if (typeof q.respTime === 'undefined' || isNaN(parseInt(q.respTime))) {
+          q.respTime = (idx === 2) ? 30 : 15;
+        }
+      });
+    }
+  }
+  else if (part === 'part5') {
+    if (typeof data.prepTime === 'undefined' || isNaN(parseInt(data.prepTime))) data.prepTime = 45;
+    if (typeof data.respTime === 'undefined' || isNaN(parseInt(data.respTime))) data.respTime = 60;
+  }
+}
+
 // 건너뛰기 버튼 상태 동기화 헬퍼
 function updateSkipButtonUI() {
   if (!ui || !ui.btnSkipTest) return;
@@ -548,6 +572,7 @@ function renderQuestion() {
   if (!partDataList || partDataList.length === 0) return;
   
   const data = partDataList[index];
+  sanitizeQuestionTimeData(data, part);
   
   // 즐겨찾기 버튼 상태 실시간 동기화
   updateFavoriteBtnState();
@@ -896,6 +921,7 @@ function startToeicSimulation() {
   
   const part = state.currentPart;
   const data = state.questions[part][state.currentQuestionIndex];
+  sanitizeQuestionTimeData(data, part);
   
   if (part === 'part3') {
     if (state.testMode === 'single') {
@@ -1388,6 +1414,7 @@ ${questionPromptContext}
 
 아래의 JSON 구조에 맞게 응답해 주세요. 마크다운 등의 백틱(\`\`\`) 코드 블록 표시 없이 오직 JSON 텍스트 자체만 반환해 주세요. JSON 포맷의 key를 명확히 유지하고 값은 한글로 작성해 주세요. (추천 답변 및 영어 문장은 영어로 작성)
 중요: 분석 속도 극대화를 위해 각 피드백 항목(pronunciationFeedback, structureFeedback, reason, modelAnswerTips)의 상세 설명은 구구절절 길게 적지 말고, 핵심만 요약하여 2문장 이내(최대한 콤팩트하고 짧게)로 신속히 답변해 주세요.
+중요: JSON 문자열 깨짐 방지를 위해, 각 속성 값 내부에는 절대로 이중 인용부호(쌍따옴표 '"')를 그대로 직접 사용하면 안 되며, 필요시 홑따옴표(')를 쓰거나 백슬래시로 이스케이프(\")해서 처리해 주세요.
 
 ## JSON 응답 포맷 요구사항:
 {
@@ -1423,7 +1450,7 @@ ${questionPromptContext}
           generationConfig: {
             responseMimeType: "application/json",
             temperature: 0.1,
-            maxOutputTokens: 2048
+            maxOutputTokens: 4096
           }
         }
       : {
@@ -1808,7 +1835,9 @@ async function generateAiQuestion() {
       partPromptText = "유형 1: Read a text aloud (문장 읽기 지문). 토익스피킹 시험 수준에 어울리는 공식 비즈니스 안내 방송, 기업 연설, 공항 방송, 광고문, 혹은 상점 행사 공지 등의 성격을 띤 50~70단어 수준의 영어 문단 1개를 생성하세요. 안내 방송(announcement) 또는 광고(advertisement) 템플릿이 좋습니다.";
       jsonFormatRequirements = `{
         "instruction": "화면의 지문을 주어진 시간 동안 준비하고 소리 내어 읽으십시오.",
-        "text": "[생성된 영문 지문 내용 전체]"
+        "text": "[생성된 영문 지문 내용 전체]",
+        "prepTime": 45,
+        "respTime": 45
       }`;
       break;
     case 'part2':
@@ -1820,7 +1849,9 @@ async function generateAiQuestion() {
       jsonFormatRequirements = `{
         "instruction": "화면의 사진을 주어진 시간 동안 준비하고 가능한 한 자세히 묘사하십시오.",
         "imageUrl": "${selectedPart2ImgUrl}",
-        "imageDescription": "[지정된 사진(${selectedPart2ImgUrl} - ${selectedPart2ImgType})의 실제 상황에 의거하여 등장인물의 인원수(1명/2명/3명/4명/다수), 각자 입은 옷, 구체적 상호작용 행동 및 포즈, 그리고 주변 배경 사물의 레이아웃을 순서대로 정밀 분석한 한국어 묘사 텍스트]"
+        "imageDescription": "[지정된 사진(${selectedPart2ImgUrl} - ${selectedPart2ImgType})의 실제 상황에 의거하여 등장인물의 인원수(1명/2명/3명/4명/다수), 각자 입은 옷, 구체적 상호작용 행동 및 포즈, 그리고 주변 배경 사물의 레이아웃을 순서대로 정밀 분석한 한국어 묘사 텍스트]",
+        "prepTime": 45,
+        "respTime": 45
       }`;
       break;
     case 'part3':
@@ -1829,9 +1860,9 @@ async function generateAiQuestion() {
         "instruction": "가상의 전화 인터뷰라 가정하고 각 질문에 대해 준비 시간 후 즉시 대답하십시오.",
         "context": "[설문 시나리오 설명문 한글 또는 영문. 예: Imagine that a marketing research firm is doing a survey about reading habits in your area.]",
         "questions": [
-          { "num": 5, "text": "[Q5 질문 내용. 예: How often do you read books, and where do you usually buy them?]" },
-          { "num": 6, "text": "[Q6 질문 내용. 예: Do you prefer reading paper books or e-books? Why?]" },
-          { "num": 7, "text": "[Q7 질문 내용. 예: What is the most important factor when choosing a book to read? Describe in detail.]" }
+          { "num": 5, "text": "[Q5 질문 내용. 예: How often do you read books, and where do you usually buy them?]", "prepTime": 3, "respTime": 15 },
+          { "num": 6, "text": "[Q6 질문 내용. 예: Do you prefer reading paper books or e-books? Why?]", "prepTime": 3, "respTime": 15 },
+          { "num": 7, "text": "[Q7 질문 내용. 예: What is the most important factor when choosing a book to read? Describe in detail.]", "prepTime": 3, "respTime": 30 }
         ]
       }`;
       break;
@@ -1848,9 +1879,9 @@ async function generateAiQuestion() {
           { "time": "[시간. 예: 01:00 PM - 02:30 PM]", "event": "[세션 세부명. 예: Workshop A: AI in Business Strategy]", "speaker": "[연사명. 예: Led by Tech Solutions Inc.]" }
         ],
         "questions": [
-          { "num": 8, "text": "[Q8 질문 내용. 예: What is the first event of the summit, and what time does it start?]" },
-          { "num": 9, "text": "[Q9 질문 내용. 예: I heard that the lunch session is scheduled for 2 hours, is that correct?]" },
-          { "num": 10, "text": "[Q10 질문 내용. 예: Could you give me all the details about the sessions scheduled in the afternoon?]" }
+          { "num": 8, "text": "[Q8 질문 내용. 예: What is the first event of the summit, and what time does it start?]", "prepTime": 3, "respTime": 15 },
+          { "num": 9, "text": "[Q9 질문 내용. 예: I heard that the lunch session is scheduled for 2 hours, is that correct?]", "prepTime": 3, "respTime": 15 },
+          { "num": 10, "text": "[Q10 질문 내용. 예: Could you give me all the details about the sessions scheduled in the afternoon?]", "prepTime": 3, "respTime": 30 }
         ]
       }`;
       break;
@@ -1858,7 +1889,9 @@ async function generateAiQuestion() {
       partPromptText = "유형 5: Express an opinion (의견 제시하기). 특정 토론 주제(예: 온라인 교육의 효과, 사내 재택근무 활성화, 기술 도입의 필요성 등)에 대한 찬반 의견 또는 선호도 조사를 묻는 정교한 60초 답변 분량의 영어 에세이 질문 1개를 작성하세요.";
       jsonFormatRequirements = `{
         "instruction": "특정 주제에 대해 본인의 의견을 논리적으로 말하십시오.",
-        "questionText": "[영문 질문 텍스트. 예: Do you agree or disagree with the following statement? \\"Students learn more effectively through online classes than traditional in-person classes.\\" Give specific reasons and examples to support your opinion.]"
+        "questionText": "[영문 질문 텍스트. 예: Do you agree or disagree with the following statement? \\"Students learn more effectively through online classes than traditional in-person classes.\\" Give specific reasons and examples to support your opinion.]",
+        "prepTime": 45,
+        "respTime": 60
       }`;
       break;
   }
