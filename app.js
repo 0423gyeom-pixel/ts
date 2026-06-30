@@ -1249,7 +1249,26 @@ async function requestAiFeedback() {
     questionPromptContext = `유형: Part 5 - Express an opinion\n질문:\n"${qData.questionText}"`;
   }
   
-  const userSpeechText = state.fullTranscriptText || "(사용자의 답변이 녹음되지 않았거나 조용했습니다)";
+  let userSpeechText = (state.fullTranscriptText || state.liveTranscript || "").trim();
+  
+  // 모바일 브라우저의 STT 미지원 및 음성 인식 누락 시 예외 구제 처리
+  if (!userSpeechText || userSpeechText === '음성을 인식하기 시작합니다...' || userSpeechText.length < 3) {
+    const manualText = prompt(
+      "📢 [음성 인식 안내]\n" +
+      "모바일 웹뷰(인스타그램/카카오톡 등) 환경은 모바일 브라우저 정책 상 실시간 영어 발음 문자 변환(STT)이 누락될 수 있습니다.\n\n" +
+      "하지만 사용자님의 실제 목소리 녹음물은 안전하게 저장되었습니다! 아래 입력창에 방금 말씀하신 답변 내용을 텍스트로 적어 주시면, 해당 내용을 기반으로 AI 원어민 정밀 교정 분석을 즉시 완료해 드리겠습니다.\n\n" +
+      "방금 말한 영어 답변 내용을 적어주세요:"
+    );
+    if (manualText === null) {
+      return; // 취소 클릭 시 분석 요청 취소
+    }
+    if (!manualText.trim()) {
+      alert("분석할 스크립트 텍스트가 없어 분석 처리가 중단되었습니다.");
+      return;
+    }
+    userSpeechText = manualText.trim();
+  }
+  
   const targetLevel = state.targetGoal;
   
   // Gemini에 최적화된 프롬프트 작성
