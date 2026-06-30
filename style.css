@@ -1341,10 +1341,14 @@ body {
 @media (max-width: 1024px) {
   .app-container {
     flex-direction: column;
+    height: auto !important; /* 강제 100vh 높이 고정 해제 */
+    overflow: visible !important; /* 모바일 전역 스크롤 허용 */
   }
   
   .sidebar {
     width: 100%;
+    height: auto !important;
+    position: relative !important;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
     padding: 1.25rem 1.5rem;
@@ -1366,7 +1370,10 @@ body {
   }
   
   .main-content {
-    padding: 1.5rem;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important; /* 내부 스크롤 고정 해제하여 모바일 짤림 방지 */
+    padding: 1.5rem 1rem;
   }
   
   .control-section {
