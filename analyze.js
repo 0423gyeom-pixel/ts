@@ -1,7 +1,7 @@
 // api/analyze.js - Vercel Serverless Function (Node.js)
 
 export default async function handler(req, res) {
-  // CORS 헤더 설정 (다양한 도메인 접속 허용)
+  // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -18,26 +18,36 @@ export default async function handler(req, res) {
 
   try {
     const { contents } = req.body;
-    // Vercel Dashboard 환경변수에 등록될 GEMINI_API_KEY
-    const apiKey = process.env.GEMINI_API_KEY;
+    
+    // Vercel 환경변수에서 API Key를 읽되, 앞뒤 공백 및 줄바꿈(\n, \r)을 완벽하게 trim 세척합니다.
+    const rawApiKey = process.env.GEMINI_API_KEY;
+    const apiKey = rawApiKey ? rawApiKey.trim().replace(/[\r\n]/g, "") : null;
 
     if (!apiKey) {
-      return res.status(500).json({ error: '서버에 API Key가 설정되지 않았습니다. Vercel 환경변수 설정을 완료해 주세요.' });
+      return res.status(500).json({ error: '서버 환경변수(GEMINI_API_KEY)가 등록되지 않았습니다. Vercel 설정을 완료해 주세요.' });
     }
 
-    // Google Gemini API로 직접 HTTP 요청
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    // 최신 gemini-2.5-flash 모델 사용 및 JSON 스키마 강제 세팅을 포함하여 Google API로 중계 요청합니다.
+    const requestUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    
+    const response = await fetch(requestUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ contents })
+      body: JSON.stringify({
+        contents,
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      })
     });
 
     const data = await response.json();
     return res.status(200).json(data);
   } catch (error) {
-    console.error("Proxy handler error:", error);
-    return res.status(500).json({ error: 'AI 분석 요청 처리 중 백엔드 오류가 발생했습니다.' });
+    console.error("Vercel Proxy Handler Error:", error);
+    // 에러 메시지 반환
+    return res.status(500).json({ error: error.message || '백엔드 처리 중 원인 불명의 예외가 터졌습니다.' });
   }
 }
