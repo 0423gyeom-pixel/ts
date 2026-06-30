@@ -147,6 +147,7 @@ const ui = {
   // 신규 문제 생성 및 즐겨찾기
   btnGenerateQ: document.getElementById('btn-generate-q'),
   btnFavoriteToggle: document.getElementById('btn-favorite-toggle'),
+  btnMicToggle: document.getElementById('btn-mic-toggle'),
   favoritesList: document.getElementById('favorites-list')
 };
 
