@@ -1392,6 +1392,14 @@ body {
   .control-section {
     grid-template-columns: 1fr;
     gap: 1rem;
+    position: relative !important; /* 모바일 fixed 고정 해제하여 공간 확보 */
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    margin-top: 1.5rem;
+    box-shadow: none !important;
   }
   
   .part4-layout {
