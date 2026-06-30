@@ -1213,10 +1213,7 @@ async function requestAiFeedback() {
     return;
   }
   
-  // 로딩 화면 표시 및 텍스트 갱신 (중첩 겹침 버그 방지)
-  ui.loadingOverlay.querySelector('h3').textContent = "Gemini가 스피치를 정밀 분석하고 있습니다...";
-  ui.loadingOverlay.querySelector('p').textContent = "목표 등급에 맞추어 발음 오류 감지, 문법 교정 및 추천 답변을 구성하고 있습니다.";
-  ui.loadingOverlay.classList.remove('hidden');
+
   
   const part = state.currentPart;
   const qData = state.questions[part][state.currentQuestionIndex];
@@ -1268,6 +1265,11 @@ async function requestAiFeedback() {
     }
     userSpeechText = manualText.trim();
   }
+  
+  // 로딩 화면 표시 및 텍스트 갱신 (사용자가 prompt 대화상자를 입력 완료한 후 실행하여 모바일 락 예방)
+  ui.loadingOverlay.querySelector('h3').textContent = "Gemini가 스피치를 정밀 분석하고 있습니다...";
+  ui.loadingOverlay.querySelector('p').textContent = "목표 등급에 맞추어 발음 오류 감지, 문법 교정 및 추천 답변을 구성하고 있습니다.";
+  ui.loadingOverlay.classList.remove('hidden');
   
   const targetLevel = state.targetGoal;
   
