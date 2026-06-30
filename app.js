@@ -31,7 +31,9 @@ const state = {
   
   // 유저 환경설정
   targetGoal: 'IH',
-  apiKey: ''
+  apiKey: '',
+  currentPlayingAudio: null,
+  countdownCallback: null
 };
 
 // Web Audio API를 이용한 비프음 생성 함수
@@ -64,6 +66,23 @@ function safeCreateIcons() {
     }
   } catch (e) {
     console.warn("Lucide 아이콘 생성 예외 무시:", e);
+  }
+}
+
+// 건너뛰기 버튼 상태 동기화 헬퍼
+function updateSkipButtonUI() {
+  if (!ui || !ui.btnSkipTest) return;
+  
+  if (state.gameState === 'idle') {
+    ui.btnSkipTest.style.display = 'none';
+  } else {
+    ui.btnSkipTest.style.display = 'inline-flex';
+    if (state.gameState === 'preparing') {
+      ui.btnSkipTest.innerHTML = '<i data-lucide="fast-forward"></i><span>준비 건너뛰기</span>';
+    } else if (state.gameState === 'speaking') {
+      ui.btnSkipTest.innerHTML = '<i data-lucide="check-circle"></i><span>답변 완료</span>';
+    }
+    safeCreateIcons();
   }
 }
 
@@ -132,6 +151,7 @@ const ui = {
   sttLivePreview: document.getElementById('stt-live-preview'),
   
   btnStartTest: document.getElementById('btn-start-test'),
+  btnSkipTest: document.getElementById('btn-skip-test'),
   btnPlayAudio: document.getElementById('btn-play-audio'),
   btnAnalyze: document.getElementById('btn-analyze'),
   
@@ -377,26 +397,48 @@ function bindEvents() {
     }
   });
   
-  // 녹음 오디오 재생 버튼
+  // 연습 단계 건너뛰기 버튼
+  ui.btnSkipTest.addEventListener('click', () => {
+    skipCountdown();
+  });
+  
+  // 녹음 오디오 재생 / 중지 토글 버튼
   ui.btnPlayAudio.addEventListener('click', () => {
+    if (state.currentPlayingAudio) {
+      // 재생 중인 오디오가 이미 존재한다면 -> 즉각 중지 처리
+      try {
+        state.currentPlayingAudio.pause();
+        state.currentPlayingAudio.currentTime = 0;
+      } catch (e) {
+        console.warn("오디오 중지 처리 예외 무시:", e);
+      }
+      state.currentPlayingAudio = null;
+      ui.btnPlayAudio.innerHTML = '<i data-lucide="play"></i><span>답변 듣기</span>';
+      safeCreateIcons();
+      return;
+    }
+
     if (state.audioUrl) {
       const audio = new Audio(state.audioUrl);
       const playPromise = audio.play();
       
       if (playPromise !== undefined) {
-        ui.btnPlayAudio.disabled = true;
-        ui.btnPlayAudio.querySelector('span').textContent = '재생 중...';
+        state.currentPlayingAudio = audio;
+        ui.btnPlayAudio.innerHTML = '<i data-lucide="square"></i><span>듣기 중지</span>';
+        safeCreateIcons();
         
         playPromise.then(() => {
           audio.onended = () => {
-            ui.btnPlayAudio.disabled = false;
-            ui.btnPlayAudio.querySelector('span').textContent = '답변 듣기';
+            state.currentPlayingAudio = null;
+            ui.btnPlayAudio.innerHTML = '<i data-lucide="play"></i><span>답변 듣기</span>';
+            safeCreateIcons();
           };
         }).catch(err => {
           console.warn("오디오 재생 거부 예외 감지:", err);
           alert("이 모바일 환경 브라우저(인앱 등)에서는 음성 녹음 파일 재생 기능이 제한되거나 차단되었습니다. 모바일 Chrome/Safari 이용을 권장합니다.");
-          ui.btnPlayAudio.disabled = false;
-          ui.btnPlayAudio.querySelector('span').textContent = '답변 듣기';
+          state.currentPlayingAudio = null;
+          ui.btnPlayAudio.innerHTML = '<i data-lucide="play"></i><span>답변 듣기</span>';
+          safeCreateIcons();
         });
       }
     }
@@ -823,6 +865,7 @@ function resetSimulator() {
   ui.micStatusText.textContent = "마이크 대기";
   ui.sttLivePreview.textContent = "말씀하시면 여기에 실시간으로 텍스트가 표시됩니다...";
   state.fullTranscriptText = '';
+  updateSkipButtonUI();
   safeCreateIcons();
 }
 
@@ -835,6 +878,7 @@ function startToeicSimulation() {
   ui.btnAnalyze.disabled = true;
   ui.feedbackSection.classList.add('hidden');
   state.fullTranscriptText = '';
+  updateSkipButtonUI();
   safeCreateIcons();
   
   const part = state.currentPart;
@@ -871,6 +915,7 @@ function stopSimulation() {
 function runStandardFlow(prepTime, respTime) {
   // 1단계: 준비 시간
   state.gameState = 'preparing';
+  updateSkipButtonUI();
   ui.timerStateLabel.className = 'state-prep';
   ui.timerStateLabel.textContent = '준비 시간';
   
@@ -880,7 +925,8 @@ function runStandardFlow(prepTime, respTime) {
     
     // 2단계: 답변 시간 및 녹음 시작
     state.gameState = 'speaking';
-    ui.timerStateLabel.className = 'state-resp';
+    updateSkipButtonUI();
+    ui.timerStateLabel.className = 'state-prep'; // state-resp 이나 CSS 구조상 안전 마크
     ui.timerStateLabel.textContent = '답변 시간';
     
     startAudioRecording().then(() => {
@@ -895,12 +941,13 @@ function runStandardFlow(prepTime, respTime) {
       state.fullTranscriptText = sttResult;
       
       state.gameState = 'idle';
+      updateSkipButtonUI();
       ui.timerStateLabel.className = 'state-idle';
       ui.timerStateLabel.textContent = '연습 완료';
       ui.btnStartTest.innerHTML = '<i data-lucide="play"></i><span>다시 연습</span>';
       ui.btnStartTest.className = 'btn btn-primary';
       ui.btnAnalyze.disabled = false;
-      lucide.createIcons();
+      safeCreateIcons();
     });
   });
 }
@@ -923,6 +970,7 @@ function runPart3QuestionStep(data) {
   
   // TTS로 컴퓨터가 질문 읽어주는 가상 시각 대기 2초 부여
   state.gameState = 'preparing';
+  updateSkipButtonUI();
   ui.timerStateLabel.className = 'state-prep';
   ui.timerStateLabel.textContent = `Q${qData.num} 질문 리딩 중...`;
   ui.timerClock.textContent = "--";
@@ -938,6 +986,7 @@ function runPart3QuestionStep(data) {
       
       // 답변 시작 및 녹음 재개
       state.gameState = 'speaking';
+      updateSkipButtonUI();
       ui.timerStateLabel.className = 'state-resp';
       ui.timerStateLabel.textContent = `Q${qData.num} 답변 시간`;
       
@@ -962,12 +1011,13 @@ function runPart3QuestionStep(data) {
           stopAudioRecording(); // 최종 녹음 끝
           
           state.gameState = 'idle';
+          updateSkipButtonUI();
           ui.timerStateLabel.className = 'state-idle';
           ui.timerStateLabel.textContent = '연습 완료';
           ui.btnStartTest.innerHTML = '<i data-lucide="play"></i><span>다시 연습</span>';
           ui.btnStartTest.className = 'btn btn-primary';
           ui.btnAnalyze.disabled = false;
-          lucide.createIcons();
+          safeCreateIcons();
           
           ui.part3QItems.forEach(item => item.classList.remove('active'));
         }
@@ -986,6 +1036,7 @@ function runPart3FlowSingle(data) {
     updatePart3ActiveQuestionUI();
     
     state.gameState = 'preparing';
+    updateSkipButtonUI();
     ui.timerStateLabel.className = 'state-prep';
     ui.timerStateLabel.textContent = `Q${qData.num} 질문 리딩 중...`;
     ui.timerClock.textContent = "--";
@@ -998,6 +1049,7 @@ function runPart3FlowSingle(data) {
         playBeep(800, 0.4);
         
         state.gameState = 'speaking';
+        updateSkipButtonUI();
         ui.timerStateLabel.className = 'state-resp';
         ui.timerStateLabel.textContent = `Q${qData.num} 답변 시간`;
         
@@ -1011,12 +1063,13 @@ function runPart3FlowSingle(data) {
           state.fullTranscriptText = `[Question ${qData.num}: ${qData.text}]\nYour Answer: ${sttResult || '(Silence)'}`;
           
           state.gameState = 'idle';
+          updateSkipButtonUI();
           ui.timerStateLabel.className = 'state-idle';
           ui.timerStateLabel.textContent = '연습 완료';
           ui.btnStartTest.innerHTML = '<i data-lucide="play"></i><span>다시 연습</span>';
           ui.btnStartTest.className = 'btn btn-primary';
           ui.btnAnalyze.disabled = false;
-          lucide.createIcons();
+          safeCreateIcons();
         });
       });
     });
@@ -1027,6 +1080,7 @@ function runPart3FlowSingle(data) {
 function runPart4Flow(data) {
   // 표 분석 시간 45초 카운트다운 시작
   state.gameState = 'preparing';
+  updateSkipButtonUI();
   ui.timerStateLabel.className = 'state-prep';
   ui.timerStateLabel.textContent = '정보 확인 시간';
   
@@ -1053,6 +1107,7 @@ function runPart4QuestionStep(data) {
   ui.part4QText.textContent = "질문을 음성으로 듣는 중입니다...";
   
   state.gameState = 'preparing';
+  updateSkipButtonUI();
   ui.timerStateLabel.className = 'state-prep';
   ui.timerStateLabel.textContent = `Q${qData.num} 질문 리딩 중...`;
   ui.timerClock.textContent = "--";
@@ -1068,6 +1123,7 @@ function runPart4QuestionStep(data) {
       
       // 답변 시작 및 녹음 재개
       state.gameState = 'speaking';
+      updateSkipButtonUI();
       ui.timerStateLabel.className = 'state-resp';
       ui.timerStateLabel.textContent = `Q${qData.num} 답변 시간`;
       
@@ -1090,12 +1146,13 @@ function runPart4QuestionStep(data) {
           stopAudioRecording();
           
           state.gameState = 'idle';
+          updateSkipButtonUI();
           ui.timerStateLabel.className = 'state-idle';
           ui.timerStateLabel.textContent = '연습 완료';
           ui.btnStartTest.innerHTML = '<i data-lucide="play"></i><span>다시 연습</span>';
           ui.btnStartTest.className = 'btn btn-primary';
           ui.btnAnalyze.disabled = false;
-          lucide.createIcons();
+          safeCreateIcons();
         }
       });
     });
@@ -1111,6 +1168,7 @@ function runPart4FlowSingle(data) {
     updatePart4ActiveQuestionUI();
     
     state.gameState = 'preparing';
+    updateSkipButtonUI();
     ui.timerStateLabel.className = 'state-prep';
     ui.timerStateLabel.textContent = `Q${qData.num} 질문 리딩 중...`;
     ui.timerClock.textContent = "--";
@@ -1124,6 +1182,7 @@ function runPart4FlowSingle(data) {
         playBeep(800, 0.4);
         
         state.gameState = 'speaking';
+        updateSkipButtonUI();
         ui.timerStateLabel.className = 'state-resp';
         ui.timerStateLabel.textContent = `Q${qData.num} 답변 시간`;
         
@@ -1137,12 +1196,13 @@ function runPart4FlowSingle(data) {
           state.fullTranscriptText = `[Question ${qData.num}: ${qData.text}]\nYour Answer: ${sttResult || '(Silence)'}`;
           
           state.gameState = 'idle';
+          updateSkipButtonUI();
           ui.timerStateLabel.className = 'state-idle';
           ui.timerStateLabel.textContent = '연습 완료';
           ui.btnStartTest.innerHTML = '<i data-lucide="play"></i><span>다시 연습</span>';
           ui.btnStartTest.className = 'btn btn-primary';
           ui.btnAnalyze.disabled = false;
-          lucide.createIcons();
+          safeCreateIcons();
         });
       });
     });
@@ -1179,6 +1239,7 @@ function runCountdown(seconds, callback) {
   clearInterval(state.timerInterval);
   state.timer = seconds;
   state.totalTimerDuration = seconds;
+  state.countdownCallback = callback; // 콜백 보관
   
   updateTimerUI();
   
@@ -1188,9 +1249,22 @@ function runCountdown(seconds, callback) {
     
     if (state.timer <= 0) {
       clearInterval(state.timerInterval);
+      state.countdownCallback = null;
       callback();
     }
   }, 1000);
+}
+
+// 카운트다운 건너뛰기 헬퍼
+function skipCountdown() {
+  if (state.timerInterval) {
+    clearInterval(state.timerInterval);
+    if (state.countdownCallback) {
+      const cb = state.countdownCallback;
+      state.countdownCallback = null;
+      cb();
+    }
+  }
 }
 
 // 타이머 UI 갱신
@@ -1250,7 +1324,7 @@ async function requestAiFeedback() {
   
   // 모바일 브라우저의 STT 미지원 및 음성 인식 누락 시 예외 구제 처리
   if (!userSpeechText || userSpeechText === '음성을 인식하기 시작합니다...' || userSpeechText.length < 3) {
-    const manualText = prompt(
+    const manualText = window.prompt(
       "📢 [음성 인식 안내]\n" +
       "모바일 웹뷰(인스타그램/카카오톡 등) 환경은 모바일 브라우저 정책 상 실시간 영어 발음 문자 변환(STT)이 누락될 수 있습니다.\n\n" +
       "하지만 사용자님의 실제 목소리 녹음물은 안전하게 저장되었습니다! 아래 입력창에 방금 말씀하신 답변 내용을 텍스트로 적어 주시면, 해당 내용을 기반으로 AI 원어민 정밀 교정 분석을 즉시 완료해 드리겠습니다.\n\n" +
@@ -1274,7 +1348,7 @@ async function requestAiFeedback() {
   const targetLevel = state.targetGoal;
   
   // Gemini에 최적화된 프롬프트 작성 (출력 토큰 단축 튜닝을 통해 Vercel 10초 타임아웃 절대 방지)
-  const prompt = `
+  const geminiPrompt = `
 당신은 대한민국 최고의 토익스피킹 채점관이자 영어 원어민 스피치 교정 전문가입니다.
 사용자가 제공한 음성인식(STT) 답변 텍스트를 보고 정밀 분석 리포트를 제공해 주세요.
 
@@ -1316,7 +1390,7 @@ ${questionPromptContext}
     const requestBody = state.apiKey
       ? {
           contents: [{
-            parts: [{ text: prompt }]
+            parts: [{ text: geminiPrompt }]
           }],
           generationConfig: {
             responseMimeType: "application/json",
@@ -1326,7 +1400,7 @@ ${questionPromptContext}
         }
       : {
           contents: [{
-            parts: [{ text: prompt }]
+            parts: [{ text: geminiPrompt }]
           }]
         };
 
