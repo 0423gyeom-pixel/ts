@@ -1142,7 +1142,12 @@ function speakQuestion(text, callback) {
       console.warn("TTS 리딩 실패, 바로 콜백 실행:", e);
       setTimeout(callback, 2000); // 실패 시 가상 대기 2초
     };
-    window.speechSynthesis.speak(utterance);
+    try {
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.warn("TTS speak 호출 예외 무시 및 바로 콜백 실행:", err);
+      setTimeout(callback, 2000);
+    }
   } else {
     // 지원하지 않는 경우 가상 대기 후 실행
     setTimeout(callback, 4000);
@@ -1264,7 +1269,7 @@ ${questionPromptContext}
   try {
     const requestUrl = state.apiKey
       ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`
-      : `/api/analyze`;
+      : `${window.location.origin}/api/analyze`;
       
     const requestBody = state.apiKey
       ? {
@@ -1702,7 +1707,7 @@ ${jsonFormatRequirements}
   try {
     const requestUrl = state.apiKey
       ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`
-      : `/api/analyze`;
+      : `${window.location.origin}/api/analyze`;
       
     const requestBody = state.apiKey
       ? {
