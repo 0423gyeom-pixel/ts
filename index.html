@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- Lucide Icons (CDN) -->
   <script src="https://unpkg.com/lucide@latest"></script>
-  <link rel="stylesheet" href="style.css?v=20260701_13">
+  <link rel="stylesheet" href="style.css?v=20260701_20">
 </head>
 <body>
 
@@ -264,6 +264,7 @@
         <div class="action-card card">
           <div class="mic-status-container">
             <div id="mic-pulse" class="mic-pulse"></div>
+            <canvas id="audio-visualizer"></canvas>
             <div class="mic-icon-wrapper">
               <i data-lucide="mic" id="mic-icon"></i>
             </div>
@@ -301,6 +302,21 @@
           <h2><i data-lucide="sparkles" class="neon-icon"></i> AI 답변 분석 리포트</h2>
           <span class="feedback-goal-badge">목표: <strong id="feedback-target-goal">IH</strong></span>
         </div>
+
+        <!-- 토익스피킹 예상 취득 점수 전용 명품 전광판 -->
+        <div class="toeic-score-board">
+          <div class="score-board-left">
+            <span class="board-label">예상 취득 점수</span>
+            <div class="board-score-wrapper">
+              <span id="estimated-toeic-score">0</span><span class="board-score-max">/200</span>
+            </div>
+          </div>
+          <div class="score-board-right">
+            <span class="board-label">예상 달성 등급</span>
+            <div class="board-level-badge" id="estimated-toeic-level">N/A</div>
+          </div>
+        </div>
+
         <hr class="divider">
         
         <div class="feedback-grid">
@@ -312,17 +328,57 @@
             </div>
           </div>
 
-          <!-- 발음 및 유창성 -->
-          <div class="feedback-card pronunciation">
-            <h3><i data-lucide="languages"></i> 발음 & 유창성 피드백</h3>
-            <div class="score-display">
-              <span class="score-label">발음 정확도</span>
-              <div class="score-progress-bar">
-                <div id="pron-score-fill" class="score-fill" style="width: 0%"></div>
+          <!-- 4대 공인 평가 지표 성적표 -->
+          <div class="feedback-card core-criteria">
+            <h3><i data-lucide="bar-chart-3"></i> 4대 공인 평가 지표 채점표</h3>
+            <div class="criteria-list">
+              <!-- 1. 발음 -->
+              <div class="criteria-item">
+                <div class="criteria-info">
+                  <span class="criteria-name">🗣️ 발음 (Pronunciation)</span>
+                  <span id="score-pron-val" class="criteria-val">0/25</span>
+                </div>
+                <div class="criteria-progress-bar">
+                  <div id="score-pron-fill" class="criteria-fill fill-pron" style="width: 0%"></div>
+                </div>
               </div>
-              <span id="pron-score-val" class="score-val">0/100</span>
+              <!-- 2. 억양/강세 -->
+              <div class="criteria-item">
+                <div class="criteria-info">
+                  <span class="criteria-name">📈 억양 & 강세 (Intonation)</span>
+                  <span id="score-into-val" class="criteria-val">0/25</span>
+                </div>
+                <div class="criteria-progress-bar">
+                  <div id="score-into-fill" class="criteria-fill fill-into" style="width: 0%"></div>
+                </div>
+              </div>
+              <!-- 3. 문법 -->
+              <div class="criteria-item">
+                <div class="criteria-info">
+                  <span class="criteria-name">📝 문법 무결성 (Grammar)</span>
+                  <span id="score-gram-val" class="criteria-val">0/25</span>
+                </div>
+                <div class="criteria-progress-bar">
+                  <div id="score-gram-fill" class="criteria-fill fill-gram" style="width: 0%"></div>
+                </div>
+              </div>
+              <!-- 4. 어휘 -->
+              <div class="criteria-item">
+                <div class="criteria-info">
+                  <span class="criteria-name">📚 어휘 다양성 (Vocabulary)</span>
+                  <span id="score-voc-val" class="criteria-val">0/25</span>
+                </div>
+                <div class="criteria-progress-bar">
+                  <div id="score-voc-fill" class="criteria-fill fill-voc" style="width: 0%"></div>
+                </div>
+              </div>
             </div>
-            <p id="pron-feedback-text">발음 분석 결과가 여기에 표시됩니다.</p>
+          </div>
+
+          <!-- 발음 및 유창성 상세 피드백 코멘트 -->
+          <div class="feedback-card pronunciation">
+            <h3><i data-lucide="languages"></i> 발음 & 억양 상세 피드백</h3>
+            <p id="pron-feedback-text">발음 및 유창성 분석 결과가 여기에 표시됩니다.</p>
           </div>
 
           <!-- 답변 구조 및 논리 -->
@@ -417,7 +473,7 @@
   </button>
 
   <!-- JS 불러오기 (캐시 강제 초기화 적용) -->
-  <script src="questions.js?v=20260701_13"></script>
-  <script src="app.js?v=20260701_13"></script>
+  <script src="questions.js?v=20260701_20"></script>
+  <script src="app.js?v=20260701_20"></script>
 </body>
 </html>

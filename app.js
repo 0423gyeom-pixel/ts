@@ -33,7 +33,10 @@ const state = {
   targetGoal: 'IH',
   apiKey: '',
   currentPlayingAudio: null,
-  countdownCallback: null
+  countdownCallback: null,
+  audioContext: null,
+  analyser: null,
+  visualizerAnimationId: null
 };
 
 // Web Audio API를 이용한 비프음 생성 함수
@@ -147,6 +150,107 @@ function speakSpeechSynthesis(text) {
   }
 }
 
+// 실시간 마이크 오디오 파형 시각화(Audio Visualizer) 드로잉 엔진
+function startAudioVisualizer(stream) {
+  if (!stream || !ui.audioVisualizer) return;
+  
+  // 기존 애니메이션 루틴 정지
+  stopAudioVisualizer();
+
+  try {
+    state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    state.analyser = state.audioContext.createAnalyser();
+    state.analyser.fftSize = 256;
+    
+    const source = state.audioContext.createMediaStreamSource(stream);
+    source.connect(state.analyser);
+    
+    const canvas = ui.audioVisualizer;
+    const ctx = canvas.getContext('2d');
+    const bufferLength = state.analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    // 캔버스 크기를 부모 크기와 매칭
+    const resizeCanvas = () => {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    };
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    function draw() {
+      state.visualizerAnimationId = requestAnimationFrame(draw);
+      
+      state.analyser.getByteTimeDomainData(dataArray);
+      
+      // 배경 투명 지우기
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // 부드러운 네온 보라색 그라데이션 선 설정
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = 'rgba(139, 92, 246, 0.8)';
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = 'rgba(139, 92, 246, 0.6)';
+      
+      ctx.beginPath();
+      
+      const sliceWidth = canvas.width / bufferLength;
+      let x = 0;
+      
+      for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0; // 0.0 ~ 2.0
+        const y = (v * canvas.height) / 2;
+        
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+        
+        x += sliceWidth;
+      }
+      
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+    }
+    
+    draw();
+    
+    // 리사이즈 리스너 보관용 속성 동적 추가
+    canvas._resizeHandler = resizeCanvas;
+  } catch (err) {
+    console.warn("오디오 시각화 엔진 초기화 실패:", err);
+  }
+}
+
+function stopAudioVisualizer() {
+  if (state.visualizerAnimationId) {
+    cancelAnimationFrame(state.visualizerAnimationId);
+    state.visualizerAnimationId = null;
+  }
+  
+  const canvas = ui.audioVisualizer;
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (canvas._resizeHandler) {
+      window.removeEventListener('resize', canvas._resizeHandler);
+      canvas._resizeHandler = null;
+    }
+  }
+  
+  if (state.analyser) {
+    state.analyser.disconnect();
+    state.analyser = null;
+  }
+  
+  if (state.audioContext && state.audioContext.state !== 'closed') {
+    state.audioContext.close();
+    state.audioContext = null;
+  }
+}
+
 // 건너뛰기 버튼 상태 동기화 헬퍼
 function updateSkipButtonUI() {
   if (!ui || !ui.btnSkipTest) return;
@@ -237,8 +341,17 @@ const ui = {
   feedbackSection: document.getElementById('feedback-section'),
   feedbackTargetGoal: document.getElementById('feedback-target-goal'),
   highlightedTranscript: document.getElementById('highlighted-transcript'),
-  pronScoreFill: document.getElementById('pron-score-fill'),
-  pronScoreVal: document.getElementById('pron-score-val'),
+  estimatedToeicScore: document.getElementById('estimated-toeic-score'),
+  estimatedToeicLevel: document.getElementById('estimated-toeic-level'),
+  scorePronVal: document.getElementById('score-pron-val'),
+  scorePronFill: document.getElementById('score-pron-fill'),
+  scoreIntoVal: document.getElementById('score-into-val'),
+  scoreIntoFill: document.getElementById('score-into-fill'),
+  scoreGramVal: document.getElementById('score-gram-val'),
+  scoreGramFill: document.getElementById('score-gram-fill'),
+  scoreVocVal: document.getElementById('score-voc-val'),
+  scoreVocFill: document.getElementById('score-voc-fill'),
+  audioVisualizer: document.getElementById('audio-visualizer'),
   pronFeedbackText: document.getElementById('pron-feedback-text'),
   structFeedbackText: document.getElementById('struct-feedback-text'),
   correctionTableBody: document.getElementById('correction-table-body'),
@@ -569,6 +682,9 @@ async function toggleManualMic() {
       ui.btnMicToggle.innerHTML = '<i data-lucide="mic"></i><span>마이크 켜짐</span>';
       safeCreateIcons();
       console.log("마이크 스트림 상시 획득 성공");
+      
+      // 실시간 시각화 시작
+      startAudioVisualizer(state.micStream);
     } catch (err) {
       console.error("마이크 접근 실패:", err);
       alert("마이크 연결 실패: 브라우저 환경설정에서 마이크 권한을 허용해 주세요.");
@@ -582,6 +698,9 @@ async function toggleManualMic() {
     ui.btnMicToggle.innerHTML = '<i data-lucide="mic-off"></i><span>마이크 대기</span>';
     safeCreateIcons();
     console.log("마이크 스트림 상시 획득 해제");
+    
+    // 실시간 시각화 중지
+    stopAudioVisualizer();
   }
 }
 
@@ -867,15 +986,21 @@ async function startAudioRecording() {
       ui.btnPlayAudio.disabled = false;
       console.log("오디오 녹음 완료, 재생 준비됨:", state.audioUrl);
       
-      // 상시 마이크 스트림이 연결되지 않았을 때만 마이크 채널 종료
+      // 상시 마이크 스트림이 연결되지 않았을 때만 마이크 채널 종료 및 시각화 종료
       if (!state.micStream) {
         stream.getTracks().forEach(track => track.stop());
+        stopAudioVisualizer();
       }
     };
     
     state.mediaRecorder.start();
     ui.micStatusContainer.classList.add('recording');
     ui.micStatusText.textContent = "답변 녹음 및 인식 중...";
+    
+    // 상시 마이크가 아닐 때도 visualizer 켜기
+    if (!state.micStream) {
+      startAudioVisualizer(stream);
+    }
   } catch (err) {
     console.error("마이크 접근 실패:", err);
     ui.micStatusText.textContent = "마이크 획득 실패 (권한 필요)";
@@ -939,6 +1064,11 @@ function resetSimulator() {
   ui.micStatusText.textContent = "마이크 대기";
   ui.sttLivePreview.textContent = "말씀하시면 여기에 실시간으로 텍스트가 표시됩니다...";
   state.fullTranscriptText = '';
+  
+  if (!state.micStream) {
+    stopAudioVisualizer();
+  }
+  
   updateSkipButtonUI();
   safeCreateIcons();
 }
@@ -1454,7 +1584,13 @@ ${questionPromptContext}
 
 ## JSON 응답 포맷 요구사항:
 {
-  "pronunciationScore": [0에서 100 사이의 정수 점수],
+  "estimatedToeicScore": [0에서 200 사이의 10점 단위 정수 점수 (예: 130, 140, 150, 160). 4대 평가지표 총합(100점 만점)을 기준으로, 85점 이상은 160~200점, 70~84점은 130~150점, 50~69점은 110~120점, 그 이하는 100점 이하로 10점 단위 공식 환산 매핑],
+  "estimatedToeicLevel": "[예상 취득 등급. IM1, IM2, IM3, IH, AL, AH 중 하나]",
+  "pronunciationScore25": [발음 정확도 점수, 0에서 25 사이의 정수],
+  "intonationScore25": [억양 및 강세 자연스러움 점수, 0에서 25 사이의 정수],
+  "grammarScore25": [문법적 무결성 및 구조 안정성 점수, 0에서 25 사이의 정수],
+  "vocabularyScore25": [사용된 어휘의 적절성 및 다양성 점수, 0에서 25 사이의 정수],
+  "pronunciationScore": [종합 발음 점수, 0에서 100 사이의 정수 점수],
   "pronunciationFeedback": "[사용자의 실제 음성 녹음을 직접 듣고 평가한 발음 상태와 보완점을 핵심만 한글로 요약 작성]",
   "structureFeedback": "[답변의 구조적 일관성과 개선 방향을 핵심만 한글로 요약 작성]",
   "highlightedTranscript": "[사용자가 말한 원본 답변 텍스트(userSpeechText)에 대해 문법적, 어휘적 오류가 있거나 어색한 단어/표현 부위를 반드시 HTML <span> 태그인 <span class='highlight-error' data-tooltip='교정 가이드라인'>틀린부위</span> 로 감싸서 문맥 전체 흐름 그대로 완성한 HTML 문자열. 올바른 부분은 태그를 씌우지 않고 그대로 둡니다. data-tooltip 속성에는 간단한 교정 가이드를 한국어로 명기하세요. 예: I <span class='highlight-error' data-tooltip='went (과거시제 사용)'>go</span> to high school yesterday.]",
@@ -1466,7 +1602,7 @@ ${questionPromptContext}
     }
   ],
   "modelAnswer": "[목표 등급인 ${targetLevel} 수준에 맞는 자연스럽고 훌륭한 모범 추천 영어 답변 전체 텍스트. 문항별 개별 연습 모드일 경우 해당 1개 문항(예: Q5만)의 답변을, 전체 세트 응시 모드일 경우 3개 문항 전체(Q5, Q6, Q7 또는 Q8, Q9, Q10)의 답변을 문항 번호와 함께 모두 작성할 것]",
-  "modelAnswerTips": "[추천 답변에 사용된 핵심 구조 템플릿과 전달 팁을 핵심만 한글로 요약 작성]"
+  "modelAnswerTips": "[추천 답변에 사용된 핵심 구조 템플릿 and 전달 팁을 핵심만 한글로 요약 작성]"
 }
 `;
 
@@ -1563,9 +1699,33 @@ function renderFeedback(data) {
     ui.highlightedTranscript.innerHTML = data.highlightedTranscript || "(말씀하신 텍스트 분석에 실패했습니다.)";
   }
   
+  // 200점 예상 전광판 채우기
+  if (ui.estimatedToeicScore) {
+    ui.estimatedToeicScore.textContent = data.estimatedToeicScore || 0;
+  }
+  if (ui.estimatedToeicLevel) {
+    ui.estimatedToeicLevel.textContent = data.estimatedToeicLevel || "N/A";
+  }
+
+  // 4대 공인 평가지표 진행 표시줄 갱신 (25점 만점 기준 백분율 변환)
+  const scorePron25 = data.pronunciationScore25 || 0;
+  const scoreInto25 = data.intonationScore25 || 0;
+  const scoreGram25 = data.grammarScore25 || 0;
+  const scoreVoc25 = data.vocabularyScore25 || 0;
+
+  if (ui.scorePronVal) ui.scorePronVal.textContent = `${scorePron25}/25`;
+  if (ui.scorePronFill) ui.scorePronFill.style.width = `${Math.min(100, (scorePron25 / 25) * 100)}%`;
+
+  if (ui.scoreIntoVal) ui.scoreIntoVal.textContent = `${scoreInto25}/25`;
+  if (ui.scoreIntoFill) ui.scoreIntoFill.style.width = `${Math.min(100, (scoreInto25 / 25) * 100)}%`;
+
+  if (ui.scoreGramVal) ui.scoreGramVal.textContent = `${scoreGram25}/25`;
+  if (ui.scoreGramFill) ui.scoreGramFill.style.width = `${Math.min(100, (scoreGram25 / 25) * 100)}%`;
+
+  if (ui.scoreVocVal) ui.scoreVocVal.textContent = `${scoreVoc25}/25`;
+  if (ui.scoreVocFill) ui.scoreVocFill.style.width = `${Math.min(100, (scoreVoc25 / 25) * 100)}%`;
+
   // 발음 피드백 채우기
-  ui.pronScoreVal.textContent = `${data.pronunciationScore || 0}/100`;
-  ui.pronScoreFill.style.width = `${data.pronunciationScore || 0}%`;
   ui.pronFeedbackText.textContent = data.pronunciationFeedback || "피드백이 제공되지 않았습니다.";
   
   // 구조 피드백 채우기
