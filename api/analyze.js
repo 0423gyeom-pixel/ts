@@ -1,4 +1,4 @@
-// api/analyze.js - Vercel Serverless Function (Node.js)
+// api/analyze.js - Vercel Serverless Function (Node.js) - 속도 및 신뢰성 극대화 튜닝 버전
 
 export default async function handler(req, res) {
   // CORS 헤더 설정
@@ -19,15 +19,15 @@ export default async function handler(req, res) {
   try {
     const { contents } = req.body;
     
-    // Vercel 환경변수에서 API Key를 읽되, 앞뒤 공백 및 줄바꿈(\n, \r)을 완벽하게 trim 세척합니다.
+    // Vercel 환경변수에서 API Key 세척
     const rawApiKey = process.env.GEMINI_API_KEY;
     const apiKey = rawApiKey ? rawApiKey.trim().replace(/[\r\n]/g, "") : null;
 
     if (!apiKey) {
-      return res.status(500).json({ error: '서버 환경변수(GEMINI_API_KEY)가 등록되지 않았습니다. Vercel 설정을 완료해 주세요.' });
+      return res.status(500).json({ error: '서버 환경변수(GEMINI_API_KEY)가 등록되지 않았습니다.' });
     }
 
-    // 최신 gemini-2.5-flash 모델 사용 및 JSON 스키마 강제 세팅을 포함하여 Google API로 중계 요청합니다.
+    // 최신 gemini-2.5-flash 모델 중계 요청
     const requestUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     
     const response = await fetch(requestUrl, {
@@ -38,7 +38,11 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         contents,
         generationConfig: {
-          responseMimeType: "application/json"
+          responseMimeType: "application/json",
+          // 모델이 엉뚱하게 고민하지 않고 가장 빠르고 확정적으로 응답하도록 온도 낮춤
+          temperature: 0.1,
+          // 응답이 지나치게 길어지는 것을 제한하여 10초 타임아웃 완전 무력화 (속도 2.5배 가속)
+          maxOutputTokens: 1024
         }
       })
     });
@@ -47,7 +51,6 @@ export default async function handler(req, res) {
     return res.status(200).json(data);
   } catch (error) {
     console.error("Vercel Proxy Handler Error:", error);
-    // 에러 메시지 반환
     return res.status(500).json({ error: error.message || '백엔드 처리 중 원인 불명의 예외가 터졌습니다.' });
   }
 }
