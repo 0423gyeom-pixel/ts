@@ -1563,11 +1563,45 @@ body {
   }
   
   .feedback-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  .feedback-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
   
   .feedback-card.full-width {
-    grid-column: span 1;
+    grid-column: span 1 !important;
+  }
+  
+  /* 에러 하이라이트 문단 모바일 자동 줄바꿈 및 스케일 최적화 */
+  .highlighted-transcript-box {
+    font-size: 1.05rem !important;
+    line-height: 1.8 !important;
+    padding: 1rem !important;
+    word-break: break-word !important;
+    white-space: normal !important;
+  }
+  
+  .highlight-error {
+    display: inline !important;
+    white-space: normal !important;
+  }
+  
+  /* 교정 테이블 모바일 삐져나옴 방지 및 내부 가로 스크롤화 */
+  .correction-table-container {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .correction-table {
+    min-width: 500px !important;
   }
   
   /* 모바일 헤더 가로 압착 해제 및 세로 1열 흐름 */
