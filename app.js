@@ -153,6 +153,11 @@ const ui = {
 
 // 1. 애플리케이션 초기화
 function init() {
+  // questions.js 로드 검증 자가 진단
+  if (!window.toeicSpeakingQuestions) {
+    alert("[시스템 알림] questions.js(기본 문제 데이터)가 정상적으로 로드되지 않았습니다!\n깃허브 저장소에 'questions.js' 파일이 소문자로 정확히 업로드되어 있는지 확인해 주세요.");
+  }
+
   // Lucide 아이콘 초기화
   if (typeof lucide !== 'undefined') {
     lucide.createIcons();
