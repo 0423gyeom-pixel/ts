@@ -1,4 +1,4 @@
-// api/analyze.js - Vercel Serverless Function (Node.js) - 속도 및 신뢰성 극대화 튜닝 버전
+// api/analyze.js - Vercel Serverless Function (Node.js) - 속도 및 JSON 완결성 튜닝 버전
 
 export default async function handler(req, res) {
   // CORS 헤더 설정
@@ -41,8 +41,8 @@ export default async function handler(req, res) {
           responseMimeType: "application/json",
           // 모델이 엉뚱하게 고민하지 않고 가장 빠르고 확정적으로 응답하도록 온도 낮춤
           temperature: 0.1,
-          // 응답이 지나치게 길어지는 것을 제한하여 10초 타임아웃 완전 무력화 (속도 2.5배 가속)
-          maxOutputTokens: 1024
+          // 오디오 피드백 정보의 JSON 조기 끊김(Unterminated string) 방지를 위해 최대 토큰 한도를 2048로 증대
+          maxOutputTokens: 2048
         }
       })
     });
