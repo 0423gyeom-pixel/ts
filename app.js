@@ -106,6 +106,47 @@ function sanitizeQuestionTimeData(data, part) {
   }
 }
 
+// 모바일 및 PC 통합 100% 무적 구글 Fallback 하이브리드 TTS 엔진
+function speakText(text) {
+  if (!text) return;
+  
+  // 이미 진행 중인 기기 내장 음성이 있다면 즉시 중단
+  if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+  }
+
+  try {
+    // 1순위: 모바일 Safari/Chrome/모든 웹뷰에서 차단되지 않는 구글 번역 TTS 오디오 재생
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodeURIComponent(text)}`;
+    const audio = new Audio(url);
+    audio.rate = 0.9;
+    const playPromise = audio.play();
+    
+    if (playPromise !== undefined) {
+      playPromise.catch(err => {
+        console.warn("구글 Fallback TTS 재생 거부됨, 내장 SpeechSynthesis 실행:", err);
+        speakSpeechSynthesis(text);
+      });
+    }
+  } catch (err) {
+    console.warn("구글 Fallback TTS 초기화 예외, 내장 SpeechSynthesis 실행:", err);
+    speakSpeechSynthesis(text);
+  }
+}
+
+// 2순위: 기기 내장 Web Speech API 백업
+function speakSpeechSynthesis(text) {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+  } else {
+    alert("이 기기 브라우저에서는 음성 합성(TTS) 재생이 제공되지 않습니다.");
+  }
+}
+
 // 건너뛰기 버튼 상태 동기화 헬퍼
 function updateSkipButtonUI() {
   if (!ui || !ui.btnSkipTest) return;
@@ -216,7 +257,8 @@ const ui = {
   btnGenerateQ: document.getElementById('btn-generate-q'),
   btnFavoriteToggle: document.getElementById('btn-favorite-toggle'),
   btnMicToggle: document.getElementById('btn-mic-toggle'),
-  favoritesList: document.getElementById('favorites-list')
+  favoritesList: document.getElementById('favorites-list'),
+  btnSettingsFloating: document.getElementById('btn-settings-floating')
 };
 
 // 1. 애플리케이션 초기화
@@ -412,6 +454,12 @@ function bindEvents() {
     ui.settingsModal.classList.add('active');
   });
   
+  if (ui.btnSettingsFloating) {
+    ui.btnSettingsFloating.addEventListener('click', () => {
+      ui.settingsModal.classList.add('active');
+    });
+  }
+  
   ui.btnCloseModal.addEventListener('click', () => {
     ui.settingsModal.classList.remove('active');
   });
@@ -491,34 +539,8 @@ function bindEvents() {
     const textToSpeak = ui.modelAnswerText.innerText;
     if (!textToSpeak) return;
     
-    // 브라우저 내장 TTS 활용
-    if ('speechSynthesis' in window) {
-      // 이미 재생 중이면 취소
-      if (window.speechSynthesis.speaking) {
-        window.speechSynthesis.cancel();
-        ui.btnReadModel.innerHTML = '<i data-lucide="volume-2"></i> 음성 듣기 (TTS)';
-        lucide.createIcons();
-        return;
-      }
-      
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utterance.lang = 'en-US'; // 영어 지문이므로 영어로 말함
-      utterance.rate = 0.9; // 살짝 천천히
-      
-      utterance.onstart = () => {
-        ui.btnReadModel.innerHTML = '<i data-lucide="square"></i> 정지';
-        lucide.createIcons();
-      };
-      
-      utterance.onend = () => {
-        ui.btnReadModel.innerHTML = '<i data-lucide="volume-2"></i> 음성 듣기 (TTS)';
-        lucide.createIcons();
-      };
-      
-      window.speechSynthesis.speak(utterance);
-    } else {
-      alert("이 브라우저에서는 음성 합성(TTS)을 지원하지 않습니다.");
-    }
+    // 모바일 무적 재생 하이브리드 TTS 실행
+    speakText(textToSpeak);
   });
 
   // AI 문제 생성 이벤트
@@ -706,6 +728,20 @@ function updatePart3ActiveQuestionUI() {
       item.classList.add('active');
     } else {
       item.classList.remove('active');
+    }
+    
+    // 실전 전체 응시 모드 가드: 대기 중이 아닐 때는 현재 차례인 문항의 텍스트만 노출
+    const questionTextEl = item.querySelector('p');
+    if (questionTextEl) {
+      if (state.testMode === 'full' && state.gameState !== 'idle') {
+        if (isSelected) {
+          questionTextEl.style.display = 'block';
+        } else {
+          questionTextEl.style.display = 'none';
+        }
+      } else {
+        questionTextEl.style.display = 'block';
+      }
     }
   });
 }
@@ -1545,7 +1581,23 @@ function renderFeedback(data) {
       tdOriginal.textContent = item.original || "-";
       
       const tdCorrected = document.createElement('td');
-      tdCorrected.textContent = item.corrected || "-";
+      tdCorrected.className = 'corrected-text-cell';
+      
+      const correctedTextSpan = document.createElement('span');
+      correctedTextSpan.textContent = item.corrected || "-";
+      tdCorrected.appendChild(correctedTextSpan);
+      
+      if (item.corrected && item.corrected !== "-") {
+        const speakBtn = document.createElement('button');
+        speakBtn.className = 'btn-speak-inline';
+        speakBtn.innerHTML = '<i data-lucide="volume-2"></i>';
+        speakBtn.title = "원어민 발음 듣기";
+        speakBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          speakText(item.corrected);
+        });
+        tdCorrected.appendChild(speakBtn);
+      }
       
       const tdReason = document.createElement('td');
       tdReason.textContent = item.reason || "-";
@@ -1570,6 +1622,9 @@ function renderFeedback(data) {
   // 모범 답변 세팅
   ui.modelAnswerText.textContent = data.modelAnswer || "모범 답변이 생성되지 않았습니다.";
   ui.modelAnswerTipsText.textContent = data.modelAnswerTips || "팁 정보가 없습니다.";
+  
+  // Lucide 아이콘 다시 그리기
+  safeCreateIcons();
   
   // 피드백 패널로 매끄럽게 스크롤
   ui.feedbackSection.scrollIntoView({ behavior: 'smooth' });
@@ -1799,23 +1854,23 @@ async function generateAiQuestion() {
   let selectedPart2ImgType = "";
   if (part === 'part2') {
     const part2Images = [
-      // 1명 등장
-      { url: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80", type: "1명 (사무실에서 컴퓨터 작업을 하며 미소 짓고 있는 비즈니스 여성)" },
-      { url: "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=800&q=80", type: "1명 (사무실 개인 책상에 턱을 괴고 앉아 진지하게 노트북 모니터를 보며 일하는 남성)" },
-      // 2명 등장 (1:1 상호작용)
-      { url: "https://images.unsplash.com/photo-1556740758-90de374c12ad?auto=format&fit=crop&w=800&q=80", type: "2명 (안내데스크/리셉션에서 여직원이 서류를 짚으며 남성 고객에게 친절하게 설명하는 장면)" },
-      { url: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80", type: "2명 (카페 카운터에서 바리스타가 커피 잔을 건네고 손님이 주문하는 대면 장면)" },
-      { url: "https://images.unsplash.com/photo-1543269865-cbf427effbad?auto=format&fit=crop&w=800&q=80", type: "2명 (회의 테이블에서 두 명의 남녀 대학생/동료가 인쇄물을 보며 토론하는 장면)" },
-      // 3명 등장 (3인 상호작용)
-      { url: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=800&q=80", type: "3명 (카페 원형 테이블에서 두 명의 남성이 태블릿 화면을 보며 의논하고 있고 여성이 서서 무언가 기록하는 3인 구도)" },
-      { url: "https://images.unsplash.com/photo-1531538606174-0f90ff5dce83?auto=format&fit=crop&w=800&q=80", type: "3명 (사무실 창가 테이블에서 세 명의 동료들이 노트북 한 대를 보며 아이디어를 의논하는 3인 구도)" },
-      // 4명 등장 (4인 협업)
-      { url: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80", type: "4명 (개방형 사무실에서 네 명의 팀원들이 한 컴퓨터 모니터를 모여서 보며 웃고 대화하는 구도)" },
-      { url: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=80", type: "4명 (대학 스터디룸에서 네 명의 학생들이 노트북과 책을 펴고 토론하는 구도)" },
-      // 다수 인물 (5인 이상)
-      { url: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80", type: "다수 (야외 시장 과일 가게에서 다수의 손님들이 야채를 고르고 상인과 흥정하는 장면)" },
-      { url: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=800&q=80", type: "다수 (강의실/세미나룸에서 여성 강사의 발표를 집중하며 메모하고 있는 다수의 학생들)" },
-      { url: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80", type: "다수 (바쁜 물류창고에서 세 명의 작업자들이 지게차 앞에 서 있고 배경에 상자가 쌓여 있는 다수 인물 장면)" }
+      // 1명 등장 (뚜렷한 원샷 비즈니스 구도)
+      { url: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80", type: "1명 (사무실 화이트보드 앞에서 똑바로 서서 컴퓨터 작업을 하며 미소 짓고 있는 비즈니스 여성)" },
+      { url: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=800&q=80", type: "1명 (회의실에서 말끔한 정장을 입고 서서 한 손으로 태블릿 화면을 가리키며 무언가를 열정적으로 프레젠테이션 하고 있는 비즈니스 남성)" },
+      // 2명 등장 (1:1 선명한 상호작용)
+      { url: "https://images.unsplash.com/photo-1556740758-90de374c12ad?auto=format&fit=crop&w=800&q=80", type: "2명 (안내데스크/리셉션에서 정장의 여직원이 서류를 손가락으로 짚으며 남성 고객에게 친절하게 웃으며 대화하는 장면)" },
+      { url: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80", type: "2명 (밝은 카페 카운터에서 바리스타 직원이 커피 잔을 건네고 양복 입은 손님이 결제 카드를 내밀며 주문하는 장면)" },
+      { url: "https://images.unsplash.com/photo-1543269865-cbf427effbad?auto=format&fit=crop&w=800&q=80", type: "2명 (사무실 회의 테이블에서 남녀 동료가 펼쳐진 인쇄물을 함께 손으로 짚으며 진지하게 토론하는 비즈니스 장면)" },
+      // 3명 등장 (3인 협업 구도)
+      { url: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=800&q=80", type: "3명 (대학 도서관 원형 테이블에서 두 명의 남성이 태블릿 모니터를 응시하고 있고 여성이 서서 무언가 기록하며 열람 중인 3인 비즈니스 구도)" },
+      { url: "https://images.unsplash.com/photo-1531538606174-0f90ff5dce83?auto=format&fit=crop&w=800&q=80", type: "3명 (개방형 사무실 회의실 창가에서 세 명의 동료들이 나란히 노트북 한 대를 보며 환하게 아이디어를 교환하고 있는 장면)" },
+      // 4명 등장 (4인 협업 및 비즈니스 의사소통)
+      { url: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80", type: "4명 (개선된 화려한 오피스에서 네 명의 남녀 팀원들이 활짝 웃으며 컴퓨터 모니터의 차트를 보며 대화하는 협업 장면)" },
+      { url: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=80", type: "4명 (대학 세미나 스터디룸에서 네 명의 청년들이 노트북과 교재를 펼쳐놓고 마주 보며 토론하는 장면)" },
+      // 다수 인물 (5인 이상 전신 웅장 구도)
+      { url: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80", type: "다수 (야외 시장 과일 매대에서 다수의 상인과 손님들이 야채를 고르며 전신으로 장을 보고 있는 활기찬 장면)" },
+      { url: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=800&q=80", type: "다수 (대강의실에서 여성 강사가 제스처를 취하며 프레젠테이션 하고 있고 다수의 수강생들이 필기하며 경청하고 있는 강의 장면)" },
+      { url: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80", type: "다수 (넓은 물류창고에서 주황색 안전조끼를 입은 세 명의 작업자들이 지게차 앞에 모여 대화하고 있고 배경에 상자가 쌓인 생산지 장면)" }
     ];
     const randIdx = Math.floor(Math.random() * part2Images.length);
     selectedPart2ImgUrl = part2Images[randIdx].url;
@@ -1842,10 +1897,8 @@ async function generateAiQuestion() {
       break;
     case 'part2':
       partPromptText = `유형 2: Describe a picture (사진 묘사). 
-지정된 사진 이미지: "${selectedPart2ImgUrl}" (인물 유형: ${selectedPart2ImgType})
-이 사진은 실제로 인물이 등장하는 토익스피킹 연습 문항입니다.
-지정된 이 사진 구도에 완벽하게 일치하는 원어민 수준의 영어 사진 묘사 한국어 가이드라인 텍스트를 작성하세요.
-반드시 인물의 수(1명, 2명, 3명, 4명 또는 다수의 사람들 중 해당하는 실제 수), 성별, 옷차림, 각자의 주요 동작 및 손짓, 그리고 사물 및 뒷배경의 물리적 배치를 채점표 기준에 입각해 상세히 기술해야 합니다.`;
+지정된 사진 이미지 URL: "${selectedPart2ImgUrl}" (인물 유형: ${selectedPart2ImgType})
+중요: 절대 사물이나 신체 일부(손가락 등)만 묘사하는 정적인 주제로 변형하지 마십시오. 지정된 사진 내용과 인물 유형에 정확히 일치하도록, 인물의 얼굴과 상반신/전신 동작이 또렷이 부각되고 서로 비즈니스적 혹은 일상적으로 긴밀하게 상호작용하는 인물 중심의 토익스피킹 공식 묘사 스펙으로 가이드라인 한글 텍스트를 구성해야 합니다.`;
       jsonFormatRequirements = `{
         "instruction": "화면의 사진을 주어진 시간 동안 준비하고 가능한 한 자세히 묘사하십시오.",
         "imageUrl": "${selectedPart2ImgUrl}",

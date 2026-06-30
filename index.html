@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- Lucide Icons (CDN) -->
   <script src="https://unpkg.com/lucide@latest"></script>
-  <link rel="stylesheet" href="style.css?v=20260701_12">
+  <link rel="stylesheet" href="style.css?v=20260701_13">
 </head>
 <body>
 
@@ -105,6 +105,12 @@
           </div>
         </div>
       </header>
+
+      <!-- 마이크 활성화 권장 안내 문구 배너 -->
+      <div class="mic-guide-banner">
+        <i data-lucide="info"></i>
+        <span>연습을 시작하기 전, 우측 상단의 <strong>마이크 버튼을 클릭하여 활성화</strong>한 후에 연습 시작을 눌러주세요!</span>
+      </div>
 
       <!-- 문제 영역 카드 -->
       <section class="question-section card">
@@ -405,8 +411,13 @@
   <!-- 비프음 생성을 위한 가상 오디오 노드 또는 Web Audio API 설정 -->
   <audio id="beep-sound" src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==" preload="auto"></audio>
 
+  <!-- 모바일 전용 플로팅 Gemini 설정 버튼 -->
+  <button id="btn-settings-floating" class="floating-settings-btn" title="Gemini 설정">
+    <i data-lucide="settings"></i>
+  </button>
+
   <!-- JS 불러오기 (캐시 강제 초기화 적용) -->
-  <script src="questions.js?v=20260701_12"></script>
-  <script src="app.js?v=20260701_12"></script>
+  <script src="questions.js?v=20260701_13"></script>
+  <script src="app.js?v=20260701_13"></script>
 </body>
 </html>
