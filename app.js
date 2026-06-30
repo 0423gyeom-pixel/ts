@@ -69,6 +69,19 @@ function safeCreateIcons() {
   }
 }
 
+// Blob 데이터를 Base64 문자열로 변환하는 비동기 헬퍼
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result.split(',')[1];
+      resolve(base64String);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 // 건너뛰기 버튼 상태 동기화 헬퍼
 function updateSkipButtonUI() {
   if (!ui || !ui.btnSkipTest) return;
@@ -1321,20 +1334,30 @@ async function requestAiFeedback() {
   }
   
   let userSpeechText = (state.fullTranscriptText || state.liveTranscript || "").trim();
+  let audioBase64 = null;
   
-  // 모바일 브라우저의 STT 미지원 및 음성 인식 누락 시 예외 구제 처리
-  if (!userSpeechText || userSpeechText === '음성을 인식하기 시작합니다...' || userSpeechText.length < 3) {
+  // 훈련 중 녹음된 사용자 실제 목소리(audioBlob)를 Base64로 인코딩하여 구비
+  if (state.audioBlob) {
+    try {
+      audioBase64 = await blobToBase64(state.audioBlob);
+    } catch (e) {
+      console.warn("오디오 데이터 인코딩 실패:", e);
+    }
+  }
+  
+  // 음성 파일도 없고, 텍스트 자막도 완전히 빈값일 최악의 상황에만 수동 텍스트 팝업으로 방어
+  if (!audioBase64 && (!userSpeechText || userSpeechText === '음성을 인식하기 시작합니다...' || userSpeechText.length < 3)) {
     const manualText = window.prompt(
-      "📢 [음성 인식 안내]\n" +
-      "모바일 웹뷰(인스타그램/카카오톡 등) 환경은 모바일 브라우저 정책 상 실시간 영어 발음 문자 변환(STT)이 누락될 수 있습니다.\n\n" +
-      "하지만 사용자님의 실제 목소리 녹음물은 안전하게 저장되었습니다! 아래 입력창에 방금 말씀하신 답변 내용을 텍스트로 적어 주시면, 해당 내용을 기반으로 AI 원어민 정밀 교정 분석을 즉시 완료해 드리겠습니다.\n\n" +
-      "방금 말한 영어 답변 내용을 적어주세요:"
+      "📢 [음성 파일 미감지 안내]\n" +
+      "녹음된 음성 파일이 유효하지 않고 텍스트 데이터도 비어 있어 분석을 시작할 수 없습니다. " +
+      "방금 연습삼아 대답하신 영어 문장을 아래에 텍스트로 직접 입력해 주세요:\n\n" +
+      "영어 답변 내용을 입력해 주세요:"
     );
     if (manualText === null) {
       return; // 취소 클릭 시 분석 요청 취소
     }
     if (!manualText.trim()) {
-      alert("분석할 스크립트 텍스트가 없어 분석 처리가 중단되었습니다.");
+      alert("분석할 텍스트가 없어 분석 처리가 중단되었습니다.");
       return;
     }
     userSpeechText = manualText.trim();
@@ -1347,15 +1370,17 @@ async function requestAiFeedback() {
   
   const targetLevel = state.targetGoal;
   
-  // Gemini에 최적화된 프롬프트 작성 (출력 토큰 단축 튜닝을 통해 Vercel 10초 타임아웃 절대 방지)
+  // Gemini에 최적화된 프롬프트 작성 (오디오 멀티모달 인지 채점 적용)
   const geminiPrompt = `
-당신은 대한민국 최고의 토익스피킹 채점관이자 영어 원어민 스피치 교정 전문가입니다.
-사용자가 제공한 음성인식(STT) 답변 텍스트를 보고 정밀 분석 리포트를 제공해 주세요.
+당신은 대한민국 최고의 토익스피킹 채점관이자 영어 원어민 스피치 교정 및 발음 평가 전문가입니다.
+사용자가 제공한 음성인식(STT) 답변 텍스트와 실제 녹음 오디오(Audio) 데이터를 종합 검토하여 정밀 분석 리포트를 제공해 주세요.
+
+★중요: 함께 제공된 사용자의 오디오 녹음 데이터를 '반드시 직접 귀로 청취하고' 발음 점수(pronunciationScore)와 피드백을 매겨 주세요. 모바일 환경 상 음성인식 자막(userSpeechText)이 누락되었거나 부정확할 경우, 첨부된 오디오 속 실제 목소리를 직접 받아쓰기(Transcribe)하여 완벽한 문법 교정 리포트(corrections, highlightedTranscript)를 작성해 주어야 합니다.
 
 ## 훈련 세션 정보:
 ${questionPromptContext}
 
-## 사용자의 답변 (음성 인식 결과):
+## 사용자의 답변 (텍스트 자막 - 참고용):
 "${userSpeechText}"
 
 ## 사용자의 목표 등급:
@@ -1367,7 +1392,7 @@ ${questionPromptContext}
 ## JSON 응답 포맷 요구사항:
 {
   "pronunciationScore": [0에서 100 사이의 정수 점수],
-  "pronunciationFeedback": "[사용자의 발음 상태와 보완점을 핵심만 한글로 요약 작성]",
+  "pronunciationFeedback": "[사용자의 실제 음성 녹음을 직접 듣고 평가한 발음 상태와 보완점을 핵심만 한글로 요약 작성]",
   "structureFeedback": "[답변의 구조적 일관성과 개선 방향을 핵심만 한글로 요약 작성]",
   "highlightedTranscript": "[사용자가 말한 원본 답변 텍스트(userSpeechText)에 대해 문법적, 어휘적 오류가 있거나 어색한 단어/표현 부위를 반드시 HTML <span> 태그인 <span class='highlight-error' data-tooltip='교정 가이드라인'>틀린부위</span> 로 감싸서 문맥 전체 흐름 그대로 완성한 HTML 문자열. 올바른 부분은 태그를 씌우지 않고 그대로 둡니다. data-tooltip 속성에는 간단한 교정 가이드를 한국어로 명기하세요. 예: I <span class='highlight-error' data-tooltip='went (과거시제 사용)'>go</span> to high school yesterday.]",
   "corrections": [
@@ -1390,7 +1415,10 @@ ${questionPromptContext}
     const requestBody = state.apiKey
       ? {
           contents: [{
-            parts: [{ text: geminiPrompt }]
+            parts: [
+              { text: geminiPrompt },
+              ...(audioBase64 ? [{ inlineData: { mimeType: "audio/wav", data: audioBase64 } }] : [])
+            ]
           }],
           generationConfig: {
             responseMimeType: "application/json",
@@ -1400,7 +1428,10 @@ ${questionPromptContext}
         }
       : {
           contents: [{
-            parts: [{ text: geminiPrompt }]
+            parts: [
+              { text: geminiPrompt },
+              ...(audioBase64 ? [{ inlineData: { mimeType: "audio/wav", data: audioBase64 } }] : [])
+            ]
           }]
         };
 
