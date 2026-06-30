@@ -56,6 +56,17 @@ function playBeep(frequency = 800, duration = 0.5) {
   }
 }
 
+// 안전한 Lucide 아이콘 생성 헬퍼
+function safeCreateIcons() {
+  try {
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+  } catch (e) {
+    console.warn("Lucide 아이콘 생성 예외 무시:", e);
+  }
+}
+
 // UI 요소 셀렉터
 const ui = {
   // 사이드바 및 헤더
@@ -159,9 +170,7 @@ function init() {
   }
 
   // Lucide 아이콘 초기화
-  if (typeof lucide !== 'undefined') {
-    lucide.createIcons();
-  }
+  safeCreateIcons();
   
   // 로컬 스토리지에서 설정 및 API Key 로드
   state.apiKey = localStorage.getItem('gemini_api_key') || '';
@@ -446,7 +455,7 @@ async function toggleManualMic() {
       // UI 업데이트
       ui.btnMicToggle.className = 'mic-toggle-btn connected';
       ui.btnMicToggle.innerHTML = '<i data-lucide="mic"></i><span>마이크 켜짐</span>';
-      lucide.createIcons();
+      safeCreateIcons();
       console.log("마이크 스트림 상시 획득 성공");
     } catch (err) {
       console.error("마이크 접근 실패:", err);
@@ -459,7 +468,7 @@ async function toggleManualMic() {
     // UI 업데이트
     ui.btnMicToggle.className = 'mic-toggle-btn disconnected';
     ui.btnMicToggle.innerHTML = '<i data-lucide="mic-off"></i><span>마이크 대기</span>';
-    lucide.createIcons();
+    safeCreateIcons();
     console.log("마이크 스트림 상시 획득 해제");
   }
 }
@@ -803,7 +812,7 @@ function resetSimulator() {
   ui.micStatusText.textContent = "마이크 대기";
   ui.sttLivePreview.textContent = "말씀하시면 여기에 실시간으로 텍스트가 표시됩니다...";
   state.fullTranscriptText = '';
-  lucide.createIcons();
+  safeCreateIcons();
 }
 
 // 시뮬레이션 시작 분기
@@ -815,7 +824,7 @@ function startToeicSimulation() {
   ui.btnAnalyze.disabled = true;
   ui.feedbackSection.classList.add('hidden');
   state.fullTranscriptText = '';
-  lucide.createIcons();
+  safeCreateIcons();
   
   const part = state.currentPart;
   const data = state.questions[part][state.currentQuestionIndex];
@@ -1296,11 +1305,25 @@ ${questionPromptContext}
     
     if (!response.ok) {
       const errData = await response.json();
-      throw new Error(errData.error?.message || "HTTP 요청 오류가 발생했습니다.");
+      throw new Error(errData.error?.message || errData.error || "HTTP 요청 오류가 발생했습니다.");
     }
     
     const resData = await response.json();
-    const responseText = resData.candidates[0].content.parts[0].text;
+    
+    // 구글 API 또는 서버 프록시 내부 에러 상세 노출
+    if (resData.error) {
+      const errMsg = typeof resData.error === 'string' ? resData.error : (resData.error.message || "구글 API 처리 실패");
+      throw new Error(errMsg);
+    }
+    
+    if (!resData.candidates || resData.candidates.length === 0) {
+      throw new Error("Gemini가 유효한 답변 후보(candidates)를 반환하지 못했습니다.");
+    }
+    
+    const responseText = resData.candidates[0].content?.parts?.[0]?.text;
+    if (!responseText) {
+      throw new Error("AI 분석 텍스트를 불러오지 못했습니다.");
+    }
     
     // JSON 파싱
     const feedbackObj = JSON.parse(responseText.trim());
@@ -1365,7 +1388,7 @@ function renderFeedback(data) {
     td.innerHTML = '<i data-lucide="check" style="color: var(--success-color); vertical-align: middle; margin-right: 5px;"></i> 교정할 문법 오류가 발견되지 않았습니다. 훌륭한 스피치입니다!';
     tr.appendChild(td);
     ui.correctionTableBody.appendChild(tr);
-    lucide.createIcons();
+    safeCreateIcons();
   }
   
   // 모범 답변 세팅
