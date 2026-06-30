@@ -1,4 +1,4 @@
-// api/analyze.js - Vercel Serverless Function (Node.js) - 속도 및 JSON 완결성 튜닝 버전
+// api/analyze.js - Vercel Serverless Function (Node.js) - 무료 API Key 다중 순회(Round-Robin/Random Rotation) 및 속도 극대화 튜닝 버전
 
 export default async function handler(req, res) {
   // CORS 헤더 설정
@@ -19,13 +19,24 @@ export default async function handler(req, res) {
   try {
     const { contents } = req.body;
     
-    // Vercel 환경변수에서 API Key 세척
-    const rawApiKey = process.env.GEMINI_API_KEY;
-    const apiKey = rawApiKey ? rawApiKey.trim().replace(/[\r\n]/g, "") : null;
-
-    if (!apiKey) {
+    // Vercel 환경변수에서 API Key들을 로드합니다 (쉼표로 나열된 다중 키 지원)
+    const rawApiKeySetting = process.env.GEMINI_API_KEY;
+    if (!rawApiKeySetting) {
       return res.status(500).json({ error: '서버 환경변수(GEMINI_API_KEY)가 등록되지 않았습니다.' });
     }
+
+    // 쉼표로 분할 후 앞뒤 공백 및 줄바꿈 기호를 깨끗이 세척합니다.
+    const apiKeys = rawApiKeySetting.split(',')
+      .map(k => k.trim().replace(/[\r\n]/g, ""))
+      .filter(k => k.length > 0);
+
+    if (apiKeys.length === 0) {
+      return res.status(500).json({ error: '등록된 유효한 구글 API Key가 존재하지 않습니다.' });
+    }
+
+    // 서버리스 분산 처리 환경을 위해 로드된 키 풀(Key Pool) 중 1개를 무작위 선택하여 할당량을 1/N로 균등 분산시킵니다.
+    const randomIndex = Math.floor(Math.random() * apiKeys.length);
+    const apiKey = apiKeys[randomIndex];
 
     // 최신 gemini-2.5-flash 모델 중계 요청
     const requestUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
@@ -39,9 +50,7 @@ export default async function handler(req, res) {
         contents,
         generationConfig: {
           responseMimeType: "application/json",
-          // 모델이 엉뚱하게 고민하지 않고 가장 빠르고 확정적으로 응답하도록 온도 낮춤
           temperature: 0.1,
-          // 오디오 피드백 정보의 JSON 조기 끊김(Unterminated string) 방지를 위해 최대 토큰 한도를 2048로 증대
           maxOutputTokens: 2048
         }
       })
