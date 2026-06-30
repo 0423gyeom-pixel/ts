@@ -1347,38 +1347,111 @@ body {
   }
   
   .sidebar {
+    position: fixed !important; /* 상단 고정 탭바로 승격 */
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
     width: 100% !important;
-    height: auto !important;
-    position: relative !important;
+    height: 60px !important; /* 콤팩트한 상단바 높이 */
+    background: rgba(11, 15, 25, 0.96) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
     border-right: none;
-    border-bottom: 1px solid var(--border-color);
-    padding: 1.25rem 1.25rem 1.5rem 1.25rem;
+    border-bottom: 1px solid var(--border-color) !important;
+    padding: 0.5rem 0.75rem !important;
+    z-index: 100 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
   }
   
   .logo-area {
-    margin-bottom: 1.25rem;
-    justify-content: center; /* 로고 중앙 정렬 */
+    display: none !important; /* 상단바 공간 확보를 위해 로고 숨김 */
   }
   
   .nav-menu {
-    flex-direction: column !important; /* 세로 정렬로 변경 (가로 스크롤 제거) */
-    overflow-x: hidden !important;
-    gap: 0.5rem;
-    width: 100%;
+    flex-direction: row !important; /* 가로 스와이프식 탭바로 변경 */
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding-bottom: 0 !important;
+    align-items: center !important;
+    scrollbar-width: none !important; /* 스크롤바 바깥 숨김 */
+  }
+  
+  .nav-menu::-webkit-scrollbar {
+    display: none !important; /* 크롬/사파리 스크롤바 숨김 */
   }
   
   .nav-item {
-    width: 100% !important; /* 모바일 가로 너비 100% 충전 */
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    padding: 0.75rem 1.25rem;
-    flex-shrink: 0;
+    flex-shrink: 0 !important; /* 가로 정렬 시 압축되는 현상 방지 */
+    width: auto !important;
+    padding: 0.4rem 0.85rem !important;
+    border-radius: 20px !important; /* 알약형 캡슐 디자인 */
+    background: rgba(255, 255, 255, 0.03) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    box-sizing: border-box !important;
+  }
+  
+  .nav-item.active {
+    background: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+  }
+  
+  .nav-item .part-badge {
+    font-size: 0.7rem !important;
+    padding: 0.1rem 0.4rem !important;
+    margin: 0 !important;
+    border-radius: 4px !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+  }
+  
+  .nav-item .part-title {
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important; /* 줄바꿈 금지 */
   }
   
   .sidebar-footer {
-    margin-top: 1rem;
-    width: 100%;
+    position: fixed !important; /* 모바일 우측 하단 플로팅 액션 버튼(FAB)으로 변경 */
+    bottom: 140px !important; /* 하단 콤팩트 바 위에 동동 뜸 */
+    right: 1.25rem !important;
+    z-index: 101 !important;
+    width: 48px !important;
+    height: 48px !important;
+    margin-top: 0 !important;
+  }
+  
+  .sidebar-footer .footer-btn {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 50% !important; /* 원형 버튼 */
+    padding: 0 !important;
+    background: var(--primary-color) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  
+  .sidebar-footer .footer-btn span {
+    display: none !important; /* 텍스트 숨기고 아이콘만 노출 */
+  }
+  
+  .sidebar-footer .footer-btn i {
+    width: 20px !important;
+    height: 20px !important;
+    color: #fff !important;
+    margin: 0 !important;
   }
   
   .main-content {
@@ -1386,7 +1459,7 @@ body {
     height: auto !important;
     overflow-y: visible !important;
     overflow-x: hidden !important; /* 가로 스크롤 차단 */
-    padding: 1.5rem 1.25rem 140px 1.25rem !important; /* 하단 콤팩트 바 높이 대비 안전 여백 확보 */
+    padding: 75px 1.25rem 140px 1.25rem !important; /* 상단 고정 탭바(60px) 및 하단 컨트롤바(120px) 대응용 안전 패딩 */
   }
   
   .control-section {
