@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>토익스피킹 AI 발음 및 답변 연습</title>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons (CDN) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 앱 컨테이너 -->
+  <div class="app-container">
+    
+    <!-- 사이드바 (유형 선택) -->
+    <aside class="sidebar">
+      <div class="logo-area">
+        <div class="logo-icon"><i data-lucide="award"></i></div>
+        <h2>TOEIC <br><span>Speaking AI</span></h2>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-item active" data-part="part1">
+          <span class="part-badge">Part 1</span>
+          <span class="part-title">문장 읽기</span>
+        </button>
+        <button class="nav-item" data-part="part2">
+          <span class="part-badge">Part 2</span>
+          <span class="part-title">사진 묘사</span>
+        </button>
+        <button class="nav-item" data-part="part3">
+          <span class="part-badge">Part 3</span>
+          <span class="part-title">질문에 답하기</span>
+        </button>
+        <button class="nav-item" data-part="part4">
+          <span class="part-badge">Part 4</span>
+          <span class="part-title">제공된 정보로 답하기</span>
+        </button>
+        <button class="nav-item" data-part="part5">
+          <span class="part-badge">Part 5</span>
+          <span class="part-title">의견 제시하기</span>
+        </button>
+        <hr class="nav-divider" style="border: 0; border-top: 1px solid var(--border-color); margin: 1rem 0; opacity: 0.5;">
+        <button class="nav-item favorite-nav-item" data-part="favorites">
+          <span class="part-badge" style="color: var(--warning-color); border-color: rgba(245, 158, 11, 0.3);">⭐ Saved</span>
+          <span class="part-title">즐겨찾기 보관함</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button id="btn-settings" class="footer-btn">
+          <i data-lucide="settings"></i>
+          <span>Gemini 설정</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- 메인 콘텐츠 영역 -->
+    <main class="main-content">
+      
+      <!-- 헤더 (목표 점수 및 API 상태) -->
+      <header class="main-header">
+        <div class="header-left">
+          <h1 id="current-part-title">유형 1: Read a text aloud</h1>
+          <p id="current-part-desc">화면의 지문을 주어진 시간 동안 준비하고 소리 내어 읽으십시오.</p>
+        </div>
+        <div class="header-right">
+          <!-- 마이크 수동 토글 -->
+          <div class="mic-toggle-container">
+            <button id="btn-mic-toggle" class="mic-toggle-btn disconnected">
+              <i data-lucide="mic-off" id="btn-mic-toggle-icon"></i>
+              <span id="btn-mic-toggle-text">마이크 대기</span>
+            </button>
+          </div>
+          <!-- 응시 모드 설정 -->
+          <div class="mode-selector">
+            <label><i data-lucide="sliders"></i> 응시 모드</label>
+            <div class="mode-toggle-group">
+              <input type="radio" id="mode-single" name="test-mode" value="single" checked>
+              <label for="mode-single">문항별 연습</label>
+              
+              <input type="radio" id="mode-full" name="test-mode" value="full">
+              <label for="mode-full">전체 응시</label>
+            </div>
+          </div>
+          <!-- 목표 등급 설정 -->
+          <div class="goal-selector">
+            <label for="goal-select"><i data-lucide="target"></i> 목표 등급</label>
+            <select id="goal-select">
+              <option value="IM">Intermediate Mid (IM)</option>
+              <option value="IH" selected>Intermediate High (IH)</option>
+              <option value="AL">Advanced Low (AL)</option>
+              <option value="AH">Advanced Mid/High (AH)</option>
+            </select>
+          </div>
+          <!-- API 키 장착 상태 표시 배지 -->
+          <div id="api-status-badge" class="api-status-badge disconnected">
+            <span class="status-dot"></span>
+            <span class="status-text">API 키 미등록</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- 문제 영역 카드 -->
+      <section class="question-section card">
+        <div class="question-header">
+          <div class="question-selector-wrapper" style="display: flex; justify-content: flex-end; align-items: center; width: 100%; gap: 1rem;">
+            <!-- 문제 스위처 숨김 -->
+            <div class="question-selector" style="display: none; margin-bottom: 0;">
+              <button id="btn-prev-question" class="icon-btn" disabled><i data-lucide="chevron-left"></i></button>
+              <span id="question-index">문제 1 / 2</span>
+              <button id="btn-next-question" class="icon-btn"><i data-lucide="chevron-right"></i></button>
+            </div>
+            
+            <div class="question-actions" style="display: flex; gap: 0.5rem; align-items: center;">
+              <!-- AI 문제 생성 버튼 -->
+              <button id="btn-generate-q" class="btn btn-sm btn-generate-q" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; display: flex; align-items: center; gap: 0.35rem; background: var(--gradient-main); border: 0; border-radius: 6px; color: #fff; cursor: pointer; font-weight: 600; box-shadow: 0 0 10px rgba(139, 92, 246, 0.25);">
+                <i data-lucide="sparkles" style="width: 14px; height: 14px;"></i>
+                <span>AI 새 문제 생성</span>
+              </button>
+              
+              <!-- 즐겨찾기 버튼 -->
+              <button id="btn-favorite-toggle" class="favorite-toggle-btn" title="즐겨찾기 보관" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(255, 255, 255, 0.02); color: var(--text-secondary); cursor: pointer; transition: var(--transition-fast);">
+                <i data-lucide="star" id="favorite-star-icon" style="width: 16px; height: 16px;"></i>
+              </button>
+            </div>
+          </div>
+          <div class="instruction-box">
+            <i data-lucide="info"></i>
+            <span id="instruction-text">Loading...</span>
+          </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- 동적 문제 콘텐츠 박스 -->
+        <div class="question-body">
+          <!-- Part 1: Read text -->
+          <div id="content-part1" class="part-content active">
+            <div class="reading-passage" id="passage-text">
+              Loading passage...
+            </div>
+          </div>
+
+          <!-- Part 2: Describe picture -->
+          <div id="content-part2" class="part-content">
+            <div class="picture-layout">
+              <div class="picture-frame">
+                <img id="picture-img" src="" alt="Describe this picture">
+                <div class="img-loader">로딩 중...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Part 3: Respond to questions -->
+          <div id="content-part3" class="part-content">
+            <div class="context-card" id="part3-context">
+              Loading context...
+            </div>
+            <div class="part3-questions-list">
+              <div class="part3-question-item" data-qnum="5">
+                <span class="q-num">Q5</span>
+                <span class="q-text" id="part3-q5-text">Question 5 Text</span>
+              </div>
+              <div class="part3-question-item" data-qnum="6">
+                <span class="q-num">Q6</span>
+                <span class="q-text" id="part3-q6-text">Question 6 Text</span>
+              </div>
+              <div class="part3-question-item" data-qnum="7">
+                <span class="q-num">Q7</span>
+                <span class="q-text" id="part3-q7-text">Question 7 Text</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Part 4: Respond to questions using information -->
+          <div id="content-part4" class="part-content">
+            <div class="part4-layout">
+              <div class="info-document card">
+                <h3 id="part4-doc-title">Document Title</h3>
+                <p id="part4-doc-date">Document Date</p>
+                <div class="table-container">
+                  <table id="part4-table">
+                    <thead>
+                      <tr>
+                        <th>Time</th>
+                        <th>Event Detail / Speaker</th>
+                      </tr>
+                    </thead>
+                    <tbody id="part4-table-body">
+                      <!-- Dynamically added -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="part4-questions-area">
+                <!-- 질문 선택 탭 (문항별 연습 모드일 때 클릭 활성화) -->
+                <div class="part4-question-tabs">
+                  <button class="part4-q-tab active" data-qnum="8">Q8</button>
+                  <button class="part4-q-tab" data-qnum="9">Q9</button>
+                  <button class="part4-q-tab" data-qnum="10">Q10</button>
+                </div>
+                <div class="part4-question-box">
+                  <h4 id="part4-current-q-label">Question 8</h4>
+                  <p id="part4-q-text">Question text will appear here...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Part 5: Express opinion -->
+          <div id="content-part5" class="part-content">
+            <div class="opinion-prompt" id="part5-question-text">
+              Loading opinion topic...
+            </div>
+          </div>
+          
+          <!-- 즐겨찾기 보관함 (Favorites Library) -->
+          <div id="content-favorites" class="part-content">
+            <div class="favorites-box-header" style="margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+              <h3 style="font-size: 1.4rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; color: #fff; font-family: var(--font-title);">
+                <i data-lucide="folder-heart" style="color: var(--warning-color); width: 24px; height: 24px;"></i> 즐겨찾기 보관함
+              </h3>
+              <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.25rem;">내가 보관한 실전 연습 문제들을 유형별로 다시 학습할 수 있습니다.</p>
+            </div>
+            <div id="favorites-list" class="favorites-grid">
+              <!-- 즐겨찾기 카드가 동적으로 삽입되는 영역 -->
+              <div class="no-favorites-message">
+                <i data-lucide="star-off" style="width: 48px; height: 48px; color: var(--text-muted); opacity: 0.5; margin-bottom: 0.75rem;"></i>
+                <p style="color: var(--text-muted); font-size: 0.95rem;">보관함이 비어 있습니다. 연습 중에 소장하고 싶은 문항을 별표(⭐)로 담아보세요!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 시뮬레이터 및 타이머/마이크 컨트롤 영역 -->
+      <section class="control-section">
+        <!-- 타이머 패널 -->
+        <div class="timer-card card">
+          <div class="timer-status">
+            <span id="timer-state-label" class="state-idle">대기 중</span>
+            <div class="progress-bar-container">
+              <div id="timer-progress" class="progress-bar"></div>
+            </div>
+          </div>
+          <div class="timer-display">
+            <span id="timer-clock">00</span><span class="timer-unit">s</span>
+          </div>
+        </div>
+
+        <!-- 오디오 및 피드백 컨트롤 -->
+        <div class="action-card card">
+          <div class="mic-status-container">
+            <div id="mic-pulse" class="mic-pulse"></div>
+            <div class="mic-icon-wrapper">
+              <i data-lucide="mic" id="mic-icon"></i>
+            </div>
+            <div class="mic-info">
+              <span id="mic-status-text">마이크 비활성화</span>
+              <!-- 실시간 음성 인식(STT) 자막 -->
+              <span id="stt-live-preview">말씀하시면 여기에 실시간으로 텍스트가 표시됩니다...</span>
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            <button id="btn-start-test" class="btn btn-primary">
+              <i data-lucide="play"></i>
+              <span>연습 시작</span>
+            </button>
+            <button id="btn-play-audio" class="btn btn-secondary" disabled>
+              <i data-lucide="play-circle"></i>
+              <span>답변 듣기</span>
+            </button>
+            <button id="btn-analyze" class="btn btn-accent" disabled>
+              <i data-lucide="sparkles"></i>
+              <span>AI 답변 분석</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- AI 분석 결과 카드 (처음에는 숨김) -->
+      <section id="feedback-section" class="feedback-section card hidden">
+        <div class="feedback-header">
+          <h2><i data-lucide="sparkles" class="neon-icon"></i> AI 답변 분석 리포트</h2>
+          <span class="feedback-goal-badge">목표: <strong id="feedback-target-goal">IH</strong></span>
+        </div>
+        <hr class="divider">
+        
+        <div class="feedback-grid">
+          <!-- 내 스피치 오류 정밀 하이라이트 -->
+          <div class="feedback-card transcript-highlight full-width">
+            <h3><i data-lucide="file-text"></i> 내 답변 정밀 분석 (오류 하이라이트)</h3>
+            <div class="highlighted-transcript-box" id="highlighted-transcript">
+              스피치 분석 결과가 로드되면 여기에 내가 말한 전체 텍스트가 표시됩니다. 빨간색 단어에 마우스를 올리시면 상세 교정 내용이 표시됩니다.
+            </div>
+          </div>
+
+          <!-- 발음 및 유창성 -->
+          <div class="feedback-card pronunciation">
+            <h3><i data-lucide="languages"></i> 발음 & 유창성 피드백</h3>
+            <div class="score-display">
+              <span class="score-label">발음 정확도</span>
+              <div class="score-progress-bar">
+                <div id="pron-score-fill" class="score-fill" style="width: 0%"></div>
+              </div>
+              <span id="pron-score-val" class="score-val">0/100</span>
+            </div>
+            <p id="pron-feedback-text">발음 분석 결과가 여기에 표시됩니다.</p>
+          </div>
+
+          <!-- 답변 구조 및 논리 -->
+          <div class="feedback-card structure">
+            <h3><i data-lucide="layout"></i> 답변 구조 및 일관성</h3>
+            <p id="struct-feedback-text">답변 구조 분석 결과가 여기에 표시됩니다.</p>
+          </div>
+
+          <!-- 문법 및 단어 교정 -->
+          <div class="feedback-card corrections full-width">
+            <h3><i data-lucide="check-circle-2"></i> 실시간 스피치 개선 교정</h3>
+            <div class="correction-table-container">
+              <table class="correction-table">
+                <thead>
+                  <tr>
+                    <th>내가 말한 문장 (STT)</th>
+                    <th>교정된 문장 (Grammar & Vocabulary)</th>
+                    <th>피드백</th>
+                  </tr>
+                </thead>
+                <tbody id="correction-table-body">
+                  <!-- JS에서 동적으로 채워짐 -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 목표 점수대 맞춤 추천 답변 -->
+          <div class="feedback-card model-answer full-width">
+            <div class="model-answer-header">
+              <h3><i data-lucide="message-square-code"></i> 목표 등급 <span id="model-target-badge">IH</span> 맞춤 추천 답변</h3>
+              <button id="btn-read-model" class="btn btn-small"><i data-lucide="volume-2"></i> 음성 듣기 (TTS)</button>
+            </div>
+            <div class="model-answer-box" id="model-answer-text">
+              추천 답변 내용이 로딩됩니다.
+            </div>
+            <div class="model-answer-tips">
+              <strong>Tip:</strong> <span id="model-answer-tips-text">답변 팁이 표시됩니다.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Settings 모달 (Gemini API Key 설정) -->
+  <div id="settings-modal" class="modal">
+    <div class="modal-content card">
+      <div class="modal-header">
+        <h2>Gemini API 설정</h2>
+        <button id="btn-close-modal" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">
+          AI 분석 및 피드백, 등급별 추천 답변 생성을 위해 <strong>Gemini API Key</strong>가 필요합니다. 
+          입력하신 키는 사용자의 브라우저 로컬 저장소(localStorage)에 안전하게 암호화 보관되며, 외부 서버로 절대 전송되지 않습니다.
+        </p>
+        <div class="form-group">
+          <label for="gemini-api-key">Gemini API Key</label>
+          <div class="input-with-icon">
+            <i data-lucide="key"></i>
+            <input type="password" id="gemini-api-key" placeholder="AIzaSy...">
+          </div>
+          <small class="help-text">
+            API 키가 없으신가요? 
+            <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer">Google AI Studio</a>에서 무료로 발급받으실 수 있습니다.
+          </small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-settings" class="btn btn-primary">저장하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI 분석 중 로딩 오버레이 -->
+  <div id="loading-overlay" class="loading-overlay hidden">
+    <div class="loader-content">
+      <div class="spinner"></div>
+      <h3>Gemini가 스피치를 정밀 분석하고 있습니다...</h3>
+      <p>목표 등급에 맞추어 발음 오류 감지, 문법 교정 및 추천 답변을 구성하고 있습니다.</p>
+    </div>
+  </div>
+
+  <!-- 비프음 생성을 위한 가상 오디오 노드 또는 Web Audio API 설정 -->
+  <audio id="beep-sound" src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==" preload="auto"></audio>
+
+  <!-- JS 불러오기 -->
+  <script src="questions.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
