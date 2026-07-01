@@ -110,6 +110,10 @@ body {
   font-weight: 500;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .nav-menu {
   display: flex;
   flex-direction: column;

@@ -631,7 +631,7 @@ function bindEvents() {
         
         // 문제 카드와 하단 스피치 컨트롤 패널, 피드백 가림
         document.querySelector('.question-section').classList.add('hidden');
-        document.querySelector('.control-section').style.setProperty('display', 'none', 'important');
+        document.querySelector('.control-section').classList.add('hidden');
         ui.feedbackSection.classList.add('hidden');
         
         // 파트별 본문 콘텐츠 숨김 및 보관함 콘텐츠 노출
@@ -646,7 +646,7 @@ function bindEvents() {
         
         // 문제 카드와 하단 스피치 컨트롤 패널, 피드백 가림
         document.querySelector('.question-section').classList.add('hidden');
-        document.querySelector('.control-section').style.setProperty('display', 'none', 'important');
+        document.querySelector('.control-section').classList.add('hidden');
         ui.feedbackSection.classList.add('hidden');
         
         // 파트별 본문 콘텐츠 숨김 및 대시보드 콘텐츠 노출
@@ -661,7 +661,7 @@ function bindEvents() {
         
         // 숨겼던 문제 카드와 컨트롤 패널 복원
         document.querySelector('.question-section').classList.remove('hidden');
-        document.querySelector('.control-section').style.setProperty('display', 'grid');
+        document.querySelector('.control-section').classList.remove('hidden');
         
         // 보관함 및 대시보드 비활성화
         document.getElementById('content-favorites').classList.remove('active');
