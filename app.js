@@ -1638,13 +1638,14 @@ function runPart4QuestionStep(data) {
             
             state.gameState = 'idle';
             updateSkipButtonUI();
-          ui.timerStateLabel.className = 'state-idle';
-          ui.timerStateLabel.textContent = '연습 완료';
-          ui.btnStartTest.innerHTML = '<i data-lucide="play"></i><span>다시 연습</span>';
-          ui.btnStartTest.className = 'btn btn-primary';
-          ui.btnAnalyze.disabled = false;
-          safeCreateIcons();
-        }
+            ui.timerStateLabel.className = 'state-idle';
+            ui.timerStateLabel.textContent = '연습 완료';
+            ui.btnStartTest.innerHTML = '<i data-lucide="play"></i><span>다시 연습</span>';
+            ui.btnStartTest.className = 'btn btn-primary';
+            ui.btnAnalyze.disabled = false;
+            safeCreateIcons();
+          }
+        });
       });
     });
   });
