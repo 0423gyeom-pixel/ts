@@ -1781,8 +1781,8 @@ function updateTimerUI() {
 
 // 8. Gemini API 연동 및 피드백 생성
 async function requestAiFeedback() {
-  if (!state.apiKey && window.location.protocol === 'file:') {
-    alert("로컬 파일 직접 실행 환경에서는 Gemini API Key 등록이 필수적입니다. 우측 하단의 톱니바퀴 설정 버튼을 눌러 등록해 주세요.");
+  if (!state.apiKey) {
+    alert("정상적인 서비스 이용을 위해선 API Key를 등록해야 합니다. 설정 화면에서 API Key를 입력해 주세요.");
     ui.settingsModal.classList.add('active');
     return;
   }
