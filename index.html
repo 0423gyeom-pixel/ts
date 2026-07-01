@@ -50,6 +50,10 @@
           <span class="part-badge" style="color: var(--warning-color); border-color: rgba(245, 158, 11, 0.3);">⭐ Saved</span>
           <span class="part-title">즐겨찾기 보관함</span>
         </button>
+        <button class="nav-item dashboard-nav-item" data-part="dashboard" style="margin-top: 0.5rem;">
+          <span class="part-badge" style="color: var(--accent-color); border-color: rgba(139, 92, 246, 0.3);">📊 Chart</span>
+          <span class="part-title">나의 성적 대시보드</span>
+        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -239,6 +243,69 @@
               <div class="no-favorites-message">
                 <i data-lucide="star-off" style="width: 48px; height: 48px; color: var(--text-muted); opacity: 0.5; margin-bottom: 0.75rem;"></i>
                 <p style="color: var(--text-muted); font-size: 0.95rem;">보관함이 비어 있습니다. 연습 중에 소장하고 싶은 문항을 별표(⭐)로 담아보세요!</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 나의 성적 대시보드 (Dashboard Tab View) -->
+          <div id="content-dashboard" class="part-content">
+            <div class="dashboard-box-header" style="margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+              <h3 style="font-size: 1.4rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; color: #fff; font-family: var(--font-title);">
+                <i data-lucide="line-chart" style="color: var(--accent-color); width: 24px; height: 24px;"></i> 나의 성적 대시보드
+              </h3>
+              <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.25rem;">최근 7회 동안 축적된 나의 토익스피킹 연습 성적 로그와 변화 추이를 분석합니다.</p>
+            </div>
+            
+            <!-- 대시보드 통계 카드 그리드 -->
+            <div class="dashboard-stats-grid">
+              <div class="stat-card">
+                <span class="stat-label">평균 취득 점수</span>
+                <span class="stat-value" id="stat-avg-score">0점</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">최고 달성 등급</span>
+                <span class="stat-value" id="stat-max-level">N/A</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">총 누적 연습 횟수</span>
+                <span class="stat-value" id="stat-total-count">0회</span>
+              </div>
+            </div>
+
+            <!-- 차트 영역 -->
+            <div class="chart-container card" style="margin: 2rem 0; padding: 1.5rem; position: relative;">
+              <h4 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 1.25rem; font-family: var(--font-title); display: flex; align-items: center; gap: 0.5rem;">
+                <i data-lucide="trending-up" style="color: var(--success-color); width: 18px; height: 18px;"></i> 최근 성적 변화 그래프 (최대 7회)
+              </h4>
+              <div class="canvas-wrapper" style="position: relative; width: 100%; height: 240px;">
+                <canvas id="score-trend-chart"></canvas>
+              </div>
+            </div>
+
+            <!-- 과거 성적 이력 목록 -->
+            <div class="history-container card" style="padding: 1.5rem;">
+              <h4 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 1.25rem; font-family: var(--font-title); display: flex; align-items: center; gap: 0.5rem;">
+                <i data-lucide="history" style="color: var(--text-secondary); width: 18px; height: 18px;"></i> 상세 연습 이력 관리 (클릭 시 성적 복원)
+              </h4>
+              <div class="history-table-container">
+                <table class="history-table">
+                  <thead>
+                    <tr>
+                      <th>응시 일시</th>
+                      <th>유형 파트</th>
+                      <th>목표 등급</th>
+                      <th>취득 예상 점수</th>
+                      <th>성적표 복원</th>
+                    </tr>
+                  </thead>
+                  <tbody id="history-table-body">
+                    <tr>
+                      <td colspan="5" class="no-history-msg" style="text-align: center; color: var(--text-muted); padding: 2rem 0;">
+                        아직 기록된 연습 성적이 없습니다. AI 답변 분석 리포트를 획득하시면 기록이 여기에 보관됩니다!
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -465,6 +532,20 @@
           <p class="modal-privacy-note">
             ※ 연동된 API Key는 브라우저 로컬 저장소에만 암호화 보관되며 안전하게 로컬 통신합니다.
           </p>
+        </div>
+        <hr class="modal-divider">
+        <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+          <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+            <label style="margin-bottom: 0; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+              <i data-lucide="headphones" style="color: var(--accent-color); width: 18px; height: 18px;"></i>
+              <span>실전 시험장 긴장감 모드</span>
+            </label>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">연습 시 실제 시험장 웅성거림 백색소음 및 성우 안내방송 가이드를 작동합니다.</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="settings-exam-ambient">
+            <span class="slider"></span>
+          </label>
         </div>
       </div>
       <div class="modal-footer">

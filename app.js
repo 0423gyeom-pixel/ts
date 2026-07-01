@@ -36,7 +36,15 @@ const state = {
   countdownCallback: null,
   audioContext: null,
   analyser: null,
-  visualizerAnimationId: null
+  visualizerAnimationId: null,
+  
+  // 실전 긴장감 모드 및 백색소음 관련
+  examAmbientMode: false,
+  ambientAudioCtx: null,
+  ambientNoiseSource: null,
+  ambientGain: null,
+  isSpeakingGuide: false,
+  shadowingWords: []
 };
 
 // Web Audio API를 이용한 비프음 생성 함수
@@ -59,6 +67,139 @@ function playBeep(frequency = 800, duration = 0.5) {
   } catch (e) {
     console.warn("비프음 재생에 실패했습니다. 브라우저 정책 때문일 수 있습니다:", e);
   }
+}
+
+// Web Audio API를 활용한 가상 실전 시험장 웅성거림 백색소음 합성기
+function startAmbientNoise() {
+  if (!state.examAmbientMode) return;
+  stopAmbientNoise();
+
+  try {
+    state.ambientAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    const sampleRate = state.ambientAudioCtx.sampleRate;
+    const bufferSize = 2 * sampleRate;
+    const noiseBuffer = state.ambientAudioCtx.createBuffer(1, bufferSize, sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = Math.random() * 2 - 1;
+    }
+    
+    state.ambientNoiseSource = state.ambientAudioCtx.createBufferSource();
+    state.ambientNoiseSource.buffer = noiseBuffer;
+    state.ambientNoiseSource.loop = true;
+    
+    const lowpass = state.ambientAudioCtx.createBiquadFilter();
+    lowpass.type = 'lowpass';
+    lowpass.frequency.value = 280;
+    
+    const bandpass = state.ambientAudioCtx.createBiquadFilter();
+    bandpass.type = 'bandpass';
+    bandpass.frequency.value = 1100;
+    bandpass.Q.value = 1.0;
+    
+    state.ambientGain = state.ambientAudioCtx.createGain();
+    state.ambientGain.gain.value = 0.015;
+    
+    state.ambientNoiseSource.connect(lowpass);
+    lowpass.connect(bandpass);
+    bandpass.connect(state.ambientGain);
+    state.ambientGain.connect(state.ambientAudioCtx.destination);
+    
+    state.ambientNoiseSource.start(0);
+    console.log("시험장 앰비언트 노이즈 실시간 합성 재생 시작");
+  } catch (err) {
+    console.warn("앰비언트 노이즈 합성 실패:", err);
+  }
+}
+
+function stopAmbientNoise() {
+  try {
+    if (state.ambientNoiseSource) {
+      state.ambientNoiseSource.stop();
+      state.ambientNoiseSource.disconnect();
+      state.ambientNoiseSource = null;
+    }
+    if (state.ambientGain) {
+      state.ambientGain.disconnect();
+      state.ambientGain = null;
+    }
+    if (state.ambientAudioCtx && state.ambientAudioCtx.state !== 'closed') {
+      state.ambientAudioCtx.close();
+      state.ambientAudioCtx = null;
+    }
+    console.log("시험장 앰비언트 노이즈 재생 정지 완료");
+  } catch (e) {
+    console.warn("앰비언트 정지 처리 예외 무시:", e);
+  }
+}
+
+// 실제 시험장 안내 성우 방송 비동기 재생 엔진
+function playVoiceGuide(text) {
+  return new Promise((resolve) => {
+    if (!state.examAmbientMode) {
+      resolve();
+      return;
+    }
+    
+    state.isSpeakingGuide = true;
+    
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.95;
+      
+      utterance.onend = () => {
+        state.isSpeakingGuide = false;
+        resolve();
+      };
+      utterance.onerror = () => {
+        state.isSpeakingGuide = false;
+        resolve();
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      state.isSpeakingGuide = false;
+      resolve();
+    }
+  });
+}
+
+// 실시간 스피치 섀도잉 하이라이트용 단어 스팬 분할 렌더링 함수
+function renderShadowingWords(text) {
+  const container = document.getElementById('passage-text');
+  if (!container) return;
+  container.innerHTML = '';
+  
+  // 공백 단위로 쪼개서 특수 기호와 공백을 분리 보존하며 span 구성
+  const tokens = text.split(/(\s+)/);
+  state.shadowingWords = [];
+  
+  tokens.forEach(token => {
+    if (token.trim() === '') {
+      container.appendChild(document.createTextNode(token));
+    } else {
+      const cleanWord = token.replace(/[^a-zA-Z]/g, '').toLowerCase();
+      
+      const span = document.createElement('span');
+      span.className = 'word-node';
+      span.textContent = token;
+      
+      if (cleanWord.length > 0) {
+        span.setAttribute('data-word', cleanWord);
+        span.setAttribute('data-index', state.shadowingWords.length);
+        state.shadowingWords.push({
+          word: cleanWord,
+          element: span,
+          matched: false
+        });
+      }
+      container.appendChild(span);
+    }
+  });
 }
 
 // 안전한 Lucide 아이콘 생성 헬퍼
@@ -388,10 +529,16 @@ function init() {
   state.apiKey = localStorage.getItem('gemini_api_key') || '';
   state.targetGoal = localStorage.getItem('toeic_target_goal') || 'IH';
   state.testMode = localStorage.getItem('toeic_test_mode') || 'single';
+  state.examAmbientMode = localStorage.getItem('toeic_exam_ambient') === 'true';
   
   // UI에 상태 반영
   ui.geminiApiKeyInput.value = state.apiKey;
   ui.goalSelect.value = state.targetGoal;
+  
+  const ambientCheckbox = document.getElementById('settings-exam-ambient');
+  if (ambientCheckbox) {
+    ambientCheckbox.checked = state.examAmbientMode;
+  }
   
   ui.modeRadios.forEach(radio => {
     if (radio.value === state.testMode) {
@@ -486,6 +633,22 @@ function bindEvents() {
           ui.partContents[key].classList.remove('active');
         });
         document.getElementById('content-favorites').classList.add('active');
+        document.getElementById('content-dashboard').classList.remove('active');
+      } else if (part === 'dashboard') {
+        // 나의 성적 대시보드 진입 시
+        renderDashboard();
+        
+        // 문제 카드와 하단 스피치 컨트롤 패널, 피드백 가림
+        document.querySelector('.question-section').classList.add('hidden');
+        document.querySelector('.control-section').style.setProperty('display', 'none', 'important');
+        ui.feedbackSection.classList.add('hidden');
+        
+        // 파트별 본문 콘텐츠 숨김 및 대시보드 콘텐츠 노출
+        Object.keys(ui.partContents).forEach(key => {
+          ui.partContents[key].classList.remove('active');
+        });
+        document.getElementById('content-favorites').classList.remove('active');
+        document.getElementById('content-dashboard').classList.add('active');
       } else {
         state.currentQuestionIndex = 0;
         state.subQuestionIndex = 0;
@@ -494,8 +657,9 @@ function bindEvents() {
         document.querySelector('.question-section').classList.remove('hidden');
         document.querySelector('.control-section').style.setProperty('display', 'grid');
         
-        // 보관함 콘텐츠 비활성화
+        // 보관함 및 대시보드 비활성화
         document.getElementById('content-favorites').classList.remove('active');
+        document.getElementById('content-dashboard').classList.remove('active');
         
         renderQuestion();
         resetSimulator();
@@ -588,9 +752,16 @@ function bindEvents() {
     const key = ui.geminiApiKeyInput.value.trim();
     state.apiKey = key;
     localStorage.setItem('gemini_api_key', key);
+    
+    const ambientCheckbox = document.getElementById('settings-exam-ambient');
+    if (ambientCheckbox) {
+      state.examAmbientMode = ambientCheckbox.checked;
+      localStorage.setItem('toeic_exam_ambient', state.examAmbientMode);
+    }
+    
     updateApiBadge();
     ui.settingsModal.classList.remove('active');
-    alert("API 설정이 저장되었습니다.");
+    alert("설정이 성공적으로 저장되었습니다.");
   });
   
   // 연습 시작 / 정지 버튼
@@ -774,7 +945,7 @@ function renderQuestion() {
   
   // 데이터 바인딩
   if (part === 'part1') {
-    ui.passageText.textContent = data.text;
+    renderShadowingWords(data.text);
   } 
   else if (part === 'part2') {
     ui.pictureImg.src = "";
@@ -933,6 +1104,31 @@ function initSTT() {
     // 실시간 라이브 프리뷰 노출
     const displayText = state.liveTranscript + interimTranscript;
     ui.sttLivePreview.textContent = displayText || "말씀을 시작하세요...";
+    
+    // 실시간 섀도잉 단어 매칭 및 색상 변화 적용
+    if (state.currentPart === 'part1' && state.shadowingWords && state.shadowingWords.length > 0 && displayText) {
+      const userWords = displayText.toLowerCase().replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(w => w.length > 0);
+      
+      let lastMatchedIdx = -1;
+      state.shadowingWords.forEach((target, targetIdx) => {
+        const searchStart = lastMatchedIdx + 1;
+        const foundIdx = userWords.indexOf(target.word, searchStart);
+        
+        if (foundIdx !== -1) {
+          target.matched = true;
+          target.element.classList.add('match-correct');
+          lastMatchedIdx = foundIdx;
+        }
+      });
+      
+      // 현재 리딩 포커스 단어(match-current) 하이라이팅
+      state.shadowingWords.forEach((target, targetIdx) => {
+        target.element.classList.remove('match-current');
+        if (targetIdx === lastMatchedIdx + 1) {
+          target.element.classList.add('match-current');
+        }
+      });
+    }
   };
   
   state.recognition.onerror = (event) => {
@@ -1048,6 +1244,10 @@ function resumeAudioRecording() {
 // 6. 타이머 및 시험 시뮬레이터 제어
 function resetSimulator() {
   clearInterval(state.timerInterval);
+  stopAmbientNoise();
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+  }
   state.gameState = 'idle';
   state.timer = 0;
   state.totalTimerDuration = 0;
@@ -1071,6 +1271,13 @@ function resetSimulator() {
   ui.micStatusText.textContent = "마이크 대기";
   ui.sttLivePreview.textContent = "말씀하시면 여기에 실시간으로 텍스트가 표시됩니다...";
   state.fullTranscriptText = '';
+  
+  if (state.shadowingWords && state.shadowingWords.length > 0) {
+    state.shadowingWords.forEach(target => {
+      target.matched = false;
+      target.element.classList.remove('match-correct', 'match-current');
+    });
+  }
   
   if (!state.micStream) {
     stopAudioVisualizer();
@@ -1125,41 +1332,71 @@ function stopSimulation() {
 
 // (A) 일반 파트 흐름 (Part 1, 2, 5)
 function runStandardFlow(prepTime, respTime) {
+  const part = state.currentPart;
+  let prepGuide = "Begin preparing now.";
+  let respGuide = "Begin speaking now.";
+  
+  if (part === 'part1') {
+    prepGuide = "You will have 45 seconds to prepare the text. Begin preparing now.";
+    respGuide = "Begin reading aloud now.";
+  } else if (part === 'part2') {
+    prepGuide = "You will have 45 seconds to prepare. Begin preparing now.";
+    respGuide = "Begin speaking now.";
+  } else if (part === 'part5') {
+    prepGuide = "You will have 45 seconds to prepare. Begin preparing now.";
+    respGuide = "Begin speaking now.";
+  }
+
   // 1단계: 준비 시간
   state.gameState = 'preparing';
   updateSkipButtonUI();
   ui.timerStateLabel.className = 'state-prep';
   ui.timerStateLabel.textContent = '준비 시간';
   
-  runCountdown(prepTime, () => {
-    // 비프음 재생 후 답변 단계로 진입
-    playBeep(800, 0.8);
+  // 안내 멘트 방송 완료 후 카운트다운 시작
+  playVoiceGuide(prepGuide).then(() => {
+    // 멘트가 종료되면 비프음 출력 후 타이머 가동
+    playBeep(800, 0.4);
     
-    // 2단계: 답변 시간 및 녹음 시작
-    state.gameState = 'speaking';
-    updateSkipButtonUI();
-    ui.timerStateLabel.className = 'state-prep'; // state-resp 이나 CSS 구조상 안전 마크
-    ui.timerStateLabel.textContent = '답변 시간';
-    
-    startAudioRecording().then(() => {
-      startSTT();
-    });
-    
-    runCountdown(respTime, () => {
-      // 종료 단계
-      playBeep(600, 0.8);
-      stopAudioRecording();
-      const sttResult = stopSTT();
-      state.fullTranscriptText = sttResult;
-      
-      state.gameState = 'idle';
-      updateSkipButtonUI();
-      ui.timerStateLabel.className = 'state-idle';
-      ui.timerStateLabel.textContent = '연습 완료';
-      ui.btnStartTest.innerHTML = '<i data-lucide="play"></i><span>다시 연습</span>';
-      ui.btnStartTest.className = 'btn btn-primary';
-      ui.btnAnalyze.disabled = false;
-      safeCreateIcons();
+    runCountdown(prepTime, () => {
+      // 2단계: 답변 시간 가이드 방송 재생
+      playVoiceGuide(respGuide).then(() => {
+        // 비프음 재생 후 답변 단계로 진입
+        playBeep(800, 0.8);
+        
+        state.gameState = 'speaking';
+        updateSkipButtonUI();
+        ui.timerStateLabel.className = 'state-prep';
+        ui.timerStateLabel.textContent = '답변 시간';
+        
+        // 웅성거림 백색소음 실시간 합성 시작
+        startAmbientNoise();
+        
+        startAudioRecording().then(() => {
+          startSTT();
+        });
+        
+        runCountdown(respTime, () => {
+          // 종료 단계
+          playBeep(600, 0.8);
+          
+          // 웅성거림 중지
+          stopAmbientNoise();
+          
+          stopAudioRecording();
+          const sttResult = stopSTT();
+          state.fullTranscriptText = sttResult;
+          
+          state.gameState = 'idle';
+          updateSkipButtonUI();
+          ui.timerStateLabel.className = 'state-idle';
+          ui.timerStateLabel.textContent = '연습 완료';
+          ui.btnStartTest.innerHTML = '<i data-lucide="play"></i><span>다시 연습</span>';
+          ui.btnStartTest.className = 'btn btn-primary';
+          ui.btnAnalyze.disabled = false;
+          safeCreateIcons();
+        });
+      });
     });
   });
 }
@@ -1180,7 +1417,6 @@ function runPart3QuestionStep(data) {
   
   updatePart3ActiveQuestionUI();
   
-  // TTS로 컴퓨터가 질문 읽어주는 가상 시각 대기 2초 부여
   state.gameState = 'preparing';
   updateSkipButtonUI();
   ui.timerStateLabel.className = 'state-prep';
@@ -1188,51 +1424,67 @@ function runPart3QuestionStep(data) {
   ui.timerClock.textContent = "--";
   ui.timerProgress.style.width = "0%";
   
-  // 실제 토스 시험처럼 오디오 질문을 TTS로 구현
-  speakQuestion(`Question number ${qData.num}. ${qData.text}`, () => {
-    // 3초 준비 시간 작동
-    ui.timerStateLabel.textContent = `Q${qData.num} 준비 시간`;
-    
-    runCountdown(qData.prepTime, () => {
-      playBeep(800, 0.4);
+  // 첫 질문일 경우에만 파트 소개 안내 음성 가이드 출력
+  const flowPromise = (subIdx === 0) 
+    ? playVoiceGuide("In this part of the test, you will answer three questions. Begin speaking now.") 
+    : Promise.resolve();
+
+  flowPromise.then(() => {
+    // 실제 토스 시험처럼 오디오 질문을 TTS로 구현
+    speakQuestion(`Question number ${qData.num}. ${qData.text}`, () => {
+      // 3초 준비 시간 작동
+      ui.timerStateLabel.textContent = `Q${qData.num} 준비 시간`;
       
-      // 답변 시작 및 녹음 재개
-      state.gameState = 'speaking';
-      updateSkipButtonUI();
-      ui.timerStateLabel.className = 'state-resp';
-      ui.timerStateLabel.textContent = `Q${qData.num} 답변 시간`;
-      
-      resumeAudioRecording();
-      
-      runCountdown(qData.respTime, () => {
-        playBeep(600, 0.4);
-        
-        // 현재까지의 답변 STT 누적
-        const curStt = stopSTT();
-        state.fullTranscriptText += `[Question ${qData.num}: ${qData.text}]\nYour Answer: ${curStt || '(Silence)'}\n\n`;
-        
-        // 일시정지
-        pauseAudioRecording();
-        
-        // 다음 질문 체크
-        if (state.subQuestionIndex < 2) {
-          state.subQuestionIndex++;
-          runPart3QuestionStep(data);
-        } else {
-          // 모든 서브 질문 종료
-          stopAudioRecording(); // 최종 녹음 끝
+      runCountdown(qData.prepTime, () => {
+        // 답변 시간 진입 안내 가이드 방송 재생 (Begin speaking now)
+        playVoiceGuide("Begin speaking now.").then(() => {
+          playBeep(800, 0.4);
           
-          state.gameState = 'idle';
+          // 답변 시작 및 녹음 재개
+          state.gameState = 'speaking';
           updateSkipButtonUI();
-          ui.timerStateLabel.className = 'state-idle';
-          ui.timerStateLabel.textContent = '연습 완료';
-          ui.btnStartTest.innerHTML = '<i data-lucide="play"></i><span>다시 연습</span>';
-          ui.btnStartTest.className = 'btn btn-primary';
-          ui.btnAnalyze.disabled = false;
-          safeCreateIcons();
+          ui.timerStateLabel.className = 'state-resp';
+          ui.timerStateLabel.textContent = `Q${qData.num} 답변 시간`;
           
-          ui.part3QItems.forEach(item => item.classList.remove('active'));
-        }
+          // 웅성거림 백색소음 시작
+          startAmbientNoise();
+          
+          resumeAudioRecording();
+          
+          runCountdown(qData.respTime, () => {
+            playBeep(600, 0.4);
+            
+            // 웅성거림 중지
+            stopAmbientNoise();
+            
+            // 현재까지의 답변 STT 누적
+            const curStt = stopSTT();
+            state.fullTranscriptText += `[Question ${qData.num}: ${qData.text}]\nYour Answer: ${curStt || '(Silence)'}\n\n`;
+            
+            // 일시정지
+            pauseAudioRecording();
+            
+            // 다음 질문 체크
+            if (state.subQuestionIndex < 2) {
+              state.subQuestionIndex++;
+              runPart3QuestionStep(data);
+            } else {
+              // 모든 서브 질문 종료
+              stopAudioRecording(); // 최종 녹음 끝
+              
+              state.gameState = 'idle';
+              updateSkipButtonUI();
+              ui.timerStateLabel.className = 'state-idle';
+              ui.timerStateLabel.textContent = '연습 완료';
+              ui.btnStartTest.innerHTML = '<i data-lucide="play"></i><span>다시 연습</span>';
+              ui.btnStartTest.className = 'btn btn-primary';
+              ui.btnAnalyze.disabled = false;
+              safeCreateIcons();
+              
+              ui.part3QItems.forEach(item => item.classList.remove('active'));
+            }
+          });
+        });
       });
     });
   });
@@ -1258,30 +1510,38 @@ function runPart3FlowSingle(data) {
       ui.timerStateLabel.textContent = `Q${qData.num} 준비 시간`;
       
       runCountdown(qData.prepTime, () => {
-        playBeep(800, 0.4);
-        
-        state.gameState = 'speaking';
-        updateSkipButtonUI();
-        ui.timerStateLabel.className = 'state-resp';
-        ui.timerStateLabel.textContent = `Q${qData.num} 답변 시간`;
-        
-        resumeAudioRecording();
-        
-        runCountdown(qData.respTime, () => {
-          playBeep(600, 0.4);
+        playVoiceGuide("Begin speaking now.").then(() => {
+          playBeep(800, 0.4);
           
-          stopAudioRecording();
-          const sttResult = stopSTT();
-          state.fullTranscriptText = `[Question ${qData.num}: ${qData.text}]\nYour Answer: ${sttResult || '(Silence)'}`;
-          
-          state.gameState = 'idle';
+          state.gameState = 'speaking';
           updateSkipButtonUI();
-          ui.timerStateLabel.className = 'state-idle';
-          ui.timerStateLabel.textContent = '연습 완료';
-          ui.btnStartTest.innerHTML = '<i data-lucide="play"></i><span>다시 연습</span>';
-          ui.btnStartTest.className = 'btn btn-primary';
-          ui.btnAnalyze.disabled = false;
-          safeCreateIcons();
+          ui.timerStateLabel.className = 'state-resp';
+          ui.timerStateLabel.textContent = `Q${qData.num} 답변 시간`;
+          
+          // 웅성거림 백색소음 시작
+          startAmbientNoise();
+          
+          resumeAudioRecording();
+          
+          runCountdown(qData.respTime, () => {
+            playBeep(600, 0.4);
+            
+            // 웅성거림 중지
+            stopAmbientNoise();
+            
+            stopAudioRecording();
+            const sttResult = stopSTT();
+            state.fullTranscriptText = `[Question ${qData.num}: ${qData.text}]\nYour Answer: ${sttResult || '(Silence)'}`;
+            
+            state.gameState = 'idle';
+            updateSkipButtonUI();
+            ui.timerStateLabel.className = 'state-idle';
+            ui.timerStateLabel.textContent = '연습 완료';
+            ui.btnStartTest.innerHTML = '<i data-lucide="play"></i><span>다시 연습</span>';
+            ui.btnStartTest.className = 'btn btn-primary';
+            ui.btnAnalyze.disabled = false;
+            safeCreateIcons();
+          });
         });
       });
     });
@@ -1299,13 +1559,18 @@ function runPart4Flow(data) {
   // 표 활성화 (비활성화 비주얼 해제)
   document.querySelector('.part4-question-box').classList.remove('disabled-box');
   
-  runCountdown(45, () => {
-    playBeep(800, 0.8);
+  // 아젠다 확인 안내 방송 완료 후 45초 확인 작동
+  playVoiceGuide("You will have 45 seconds to read the schedule. Begin preparing now.").then(() => {
+    playBeep(800, 0.4);
     
-    // 녹음기 시작 및 바로 일시정지 (마이크 켜기)
-    startAudioRecording().then(() => {
-      pauseAudioRecording();
-      runPart4QuestionStep(data);
+    runCountdown(45, () => {
+      playBeep(800, 0.8);
+      
+      // 녹음기 시작 및 바로 일시정지 (마이크 켜기)
+      startAudioRecording().then(() => {
+        pauseAudioRecording();
+        runPart4QuestionStep(data);
+      });
     });
   });
 }
@@ -1331,34 +1596,42 @@ function runPart4QuestionStep(data) {
     ui.timerStateLabel.textContent = `Q${qData.num} 준비 시간`;
     
     runCountdown(qData.prepTime, () => {
-      playBeep(800, 0.4);
-      
-      // 답변 시작 및 녹음 재개
-      state.gameState = 'speaking';
-      updateSkipButtonUI();
-      ui.timerStateLabel.className = 'state-resp';
-      ui.timerStateLabel.textContent = `Q${qData.num} 답변 시간`;
-      
-      resumeAudioRecording();
-      
-      runCountdown(qData.respTime, () => {
-        playBeep(600, 0.4);
+      // 답변 시작 가이드 방송 재생 (Begin speaking now)
+      playVoiceGuide("Begin speaking now.").then(() => {
+        playBeep(800, 0.4);
         
-        // 현재까지의 답변 STT 누적
-        const curStt = stopSTT();
-        state.fullTranscriptText += `[Question ${qData.num}: ${qData.text}]\nYour Answer: ${curStt || '(Silence)'}\n\n`;
+        // 답변 시작 및 녹음 재개
+        state.gameState = 'speaking';
+        updateSkipButtonUI();
+        ui.timerStateLabel.className = 'state-resp';
+        ui.timerStateLabel.textContent = `Q${qData.num} 답변 시간`;
         
-        pauseAudioRecording();
+        // 웅성거림 백색소음 가동
+        startAmbientNoise();
         
-        if (state.subQuestionIndex < 2) {
-          state.subQuestionIndex++;
-          runPart4QuestionStep(data);
-        } else {
-          // 최종 녹음 완료
-          stopAudioRecording();
+        resumeAudioRecording();
+        
+        runCountdown(qData.respTime, () => {
+          playBeep(600, 0.4);
           
-          state.gameState = 'idle';
-          updateSkipButtonUI();
+          // 웅성거림 중지
+          stopAmbientNoise();
+          
+          // 현재까지의 답변 STT 누적
+          const curStt = stopSTT();
+          state.fullTranscriptText += `[Question ${qData.num}: ${qData.text}]\nYour Answer: ${curStt || '(Silence)'}\n\n`;
+          
+          pauseAudioRecording();
+          
+          if (state.subQuestionIndex < 2) {
+            state.subQuestionIndex++;
+            runPart4QuestionStep(data);
+          } else {
+            // 최종 녹음 완료
+            stopAudioRecording();
+            
+            state.gameState = 'idle';
+            updateSkipButtonUI();
           ui.timerStateLabel.className = 'state-idle';
           ui.timerStateLabel.textContent = '연습 완료';
           ui.btnStartTest.innerHTML = '<i data-lucide="play"></i><span>다시 연습</span>';
@@ -1391,26 +1664,33 @@ function runPart4FlowSingle(data) {
       ui.timerStateLabel.textContent = `Q${qData.num} 준비 시간`;
       
       runCountdown(qData.prepTime, () => {
-        playBeep(800, 0.4);
-        
-        state.gameState = 'speaking';
-        updateSkipButtonUI();
-        ui.timerStateLabel.className = 'state-resp';
-        ui.timerStateLabel.textContent = `Q${qData.num} 답변 시간`;
-        
-        resumeAudioRecording();
-        
-        runCountdown(qData.respTime, () => {
-          playBeep(600, 0.4);
+        playVoiceGuide("Begin speaking now.").then(() => {
+          playBeep(800, 0.4);
           
-          stopAudioRecording();
-          const sttResult = stopSTT();
-          state.fullTranscriptText = `[Question ${qData.num}: ${qData.text}]\nYour Answer: ${sttResult || '(Silence)'}`;
-          
-          state.gameState = 'idle';
+          state.gameState = 'speaking';
           updateSkipButtonUI();
-          ui.timerStateLabel.className = 'state-idle';
-          ui.timerStateLabel.textContent = '연습 완료';
+          ui.timerStateLabel.className = 'state-resp';
+          ui.timerStateLabel.textContent = `Q${qData.num} 답변 시간`;
+          
+          // 웅성거림 백색소음 시작
+          startAmbientNoise();
+          
+          resumeAudioRecording();
+          
+          runCountdown(qData.respTime, () => {
+            playBeep(600, 0.4);
+            
+            // 웅성거림 중지
+            stopAmbientNoise();
+            
+            stopAudioRecording();
+            const sttResult = stopSTT();
+            state.fullTranscriptText = `[Question ${qData.num}: ${qData.text}]\nYour Answer: ${sttResult || '(Silence)'}`;
+            
+            state.gameState = 'idle';
+            updateSkipButtonUI();
+            ui.timerStateLabel.className = 'state-idle';
+            ui.timerStateLabel.textContent = '연습 완료';
           ui.btnStartTest.innerHTML = '<i data-lucide="play"></i><span>다시 연습</span>';
           ui.btnStartTest.className = 'btn btn-primary';
           ui.btnAnalyze.disabled = false;
@@ -1685,6 +1965,9 @@ ${questionPromptContext}
     
     // UI 렌더링
     renderFeedback(feedbackObj);
+    
+    // 대시보드 성적 로그 축적 저장
+    saveScoreLog(state.currentPart, feedbackObj.estimatedToeicScore, feedbackObj.estimatedToeicLevel, feedbackObj);
   } catch (error) {
     handleGeminiError(error, "AI 분석 요청");
   } finally {
@@ -1795,6 +2078,301 @@ function renderFeedback(data) {
   
   // 피드백 패널로 매끄럽게 스크롤
   ui.feedbackSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+// 9-B. 대시보드 데이터 저장 및 Canvas 네온 차트 드로잉 엔진
+function saveScoreLog(part, score, level, rawData) {
+  try {
+    const logs = loadScoreLogs();
+    
+    // 점수가 유효한 범위일 때만 저장 (0~200)
+    const validScore = parseInt(score, 10);
+    if (isNaN(validScore) || validScore < 0 || validScore > 200) return;
+    
+    let partName = "Part";
+    switch(part) {
+      case 'part1': partName = "Part 1 문장 읽기"; break;
+      case 'part2': partName = "Part 2 사진 묘사"; break;
+      case 'part3': partName = "Part 3 질문 대답"; break;
+      case 'part4': partName = "Part 4 정보 활용"; break;
+      case 'part5': partName = "Part 5 의견 제시"; break;
+    }
+    
+    const newLog = {
+      id: "log-" + Date.now(),
+      timestamp: new Date().toLocaleString('ko-KR', { hour12: false }).substring(2, 17), // "26. 7. 1. 15:20" 형태
+      part: part,
+      partName: partName,
+      score: validScore,
+      level: level || "N/A",
+      rawData: rawData
+    };
+    
+    logs.push(newLog);
+    
+    // 최대 30개 이력 유지
+    if (logs.length > 30) {
+      logs.shift();
+    }
+    
+    localStorage.setItem('toeic_speaking_score_logs', JSON.stringify(logs));
+    console.log("성적 로그 저장 완료:", newLog);
+    
+    // 대시보드 실시간 동기화
+    renderDashboard();
+  } catch (err) {
+    console.warn("성적 로그 저장 중 오류 발생:", err);
+  }
+}
+
+function loadScoreLogs() {
+  const saved = localStorage.getItem('toeic_speaking_score_logs');
+  return saved ? JSON.parse(saved) : [];
+}
+
+function renderDashboard() {
+  const logs = loadScoreLogs();
+  
+  // 1. 통계 수치 계산
+  const totalCount = logs.length;
+  let avgScore = 0;
+  let maxLevel = "N/A";
+  
+  if (totalCount > 0) {
+    const sum = logs.reduce((acc, log) => acc + log.score, 0);
+    avgScore = Math.round(sum / totalCount);
+    
+    // 레벨 우선순위 정렬용 맵
+    const levelRank = { "AH": 6, "AL": 5, "IH": 4, "IM3": 3, "IM2": 2, "IM1": 1, "N/A": 0 };
+    let bestRank = 0;
+    logs.forEach(log => {
+      const rank = levelRank[log.level] || 0;
+      if (rank > bestRank) {
+        bestRank = rank;
+        maxLevel = log.level;
+      }
+    });
+  }
+  
+  // 통계 UI 바인딩
+  document.getElementById('stat-avg-score').textContent = `${avgScore}점`;
+  document.getElementById('stat-max-level').textContent = maxLevel;
+  document.getElementById('stat-total-count').textContent = `${totalCount}회`;
+  
+  // 2. 이력 테이블 렌더링
+  const tbody = document.getElementById('history-table-body');
+  tbody.innerHTML = '';
+  
+  if (totalCount === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="no-history-msg" style="text-align: center; color: var(--text-muted); padding: 2rem 0;">
+          아직 기록된 연습 성적이 없습니다. AI 답변 분석 리포트를 획득하시면 기록이 여기에 보관됩니다!
+        </td>
+      </tr>
+    `;
+  } else {
+    // 최신 순 정렬
+    const sortedLogs = [...logs].reverse();
+    sortedLogs.forEach(log => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${log.timestamp}</td>
+        <td><span class="history-part-badge">${log.partName}</span></td>
+        <td>${log.level}</td>
+        <td style="font-weight: 700; color: #fff;">${log.score} / 200</td>
+        <td>
+          <button class="btn-restore-history" data-logid="${log.id}">
+            <i data-lucide="external-link" style="width:12px; height:12px;"></i> 복원
+          </button>
+        </td>
+      `;
+      
+      // 복원 이벤트 연결
+      tr.querySelector('.btn-restore-history').addEventListener('click', (e) => {
+        e.stopPropagation();
+        restoreSavedFeedback(log.id);
+      });
+      
+      tbody.appendChild(tr);
+    });
+  }
+  
+  // 3. 차트 드로잉
+  drawScoreTrendChart(logs);
+  safeCreateIcons();
+}
+
+function drawScoreTrendChart(logs) {
+  const canvas = document.getElementById('score-trend-chart');
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  
+  // 최근 최대 7회분 추출
+  const trendLogs = logs.slice(-7);
+  
+  // 해상도 보정
+  const width = canvas.parentElement.clientWidth;
+  const height = canvas.parentElement.clientHeight;
+  canvas.width = width;
+  canvas.height = height;
+  
+  ctx.clearRect(0, 0, width, height);
+  
+  if (trendLogs.length === 0) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.font = '14px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('데이터가 충분하지 않습니다.', width / 2, height / 2);
+    return;
+  }
+  
+  // 여백 정의
+  const paddingLeft = 40;
+  const paddingRight = 40;
+  const paddingTop = 30;
+  const paddingBottom = 30;
+  
+  const graphWidth = width - paddingLeft - paddingRight;
+  const graphHeight = height - paddingTop - paddingBottom;
+  
+  // X, Y 매핑 규칙 (Y는 0점부터 200점)
+  const getX = (index) => {
+    if (trendLogs.length <= 1) return paddingLeft + graphWidth / 2;
+    return paddingLeft + (index / (trendLogs.length - 1)) * graphWidth;
+  };
+  const getY = (score) => {
+    return paddingTop + graphHeight - (score / 200) * graphHeight;
+  };
+  
+  // 1. 가로 격자선 그리기 (50점 단위)
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+  ctx.font = '10px Inter, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  
+  for (let score = 0; score <= 200; score += 50) {
+    const y = getY(score);
+    ctx.beginPath();
+    ctx.moveTo(paddingLeft, y);
+    ctx.lineTo(width - paddingRight, y);
+    ctx.stroke();
+    
+    // 점수 라벨
+    ctx.fillText(score, paddingLeft - 8, y);
+  }
+  
+  // 2. 꺾은선 아래 그라데이션 채우기
+  if (trendLogs.length > 0) {
+    ctx.beginPath();
+    ctx.moveTo(getX(0), getY(0));
+    
+    for (let i = 0; i < trendLogs.length; i++) {
+      ctx.lineTo(getX(i), getY(trendLogs[i].score));
+    }
+    
+    ctx.lineTo(getX(trendLogs.length - 1), getY(0) + (200 / 200) * graphHeight); // Y 바닥
+    ctx.lineTo(getX(0), getY(0) + (200 / 200) * graphHeight);
+    ctx.closePath();
+    
+    const fillGrad = ctx.createLinearGradient(0, paddingTop, 0, paddingTop + graphHeight);
+    fillGrad.addColorStop(0, 'rgba(139, 92, 246, 0.25)');
+    fillGrad.addColorStop(1, 'rgba(139, 92, 246, 0.0)');
+    ctx.fillStyle = fillGrad;
+    ctx.fill();
+  }
+  
+  // 3. 네온 선형 곡선 그리기
+  ctx.beginPath();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#a855f7';
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = 'rgba(168, 85, 247, 0.5)';
+  
+  for (let i = 0; i < trendLogs.length; i++) {
+    const x = getX(i);
+    const y = getY(trendLogs[i].score);
+    
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0; // 그림자 초기화
+  
+  // 4. 데이터 포인트 원형 및 텍스트 점수 라벨
+  trendLogs.forEach((log, i) => {
+    const x = getX(i);
+    const y = getY(log.score);
+    
+    // 포인트 외곽 광채 원
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#a855f7';
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    
+    // 점수 라벨 텍스트
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`${log.score}점`, x, y - 9);
+    
+    // 하단 회차 날짜 라벨
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.font = '9px Inter, sans-serif';
+    ctx.textBaseline = 'top';
+    const cleanDate = log.timestamp.split(' ')[0] || '';
+    ctx.fillText(cleanDate, x, paddingTop + graphHeight + 6);
+  });
+}
+
+function restoreSavedFeedback(logId) {
+  try {
+    const logs = loadScoreLogs();
+    const targetLog = logs.find(log => log.id === logId);
+    
+    if (!targetLog) {
+      alert("해당 성적 로그를 찾을 수 없습니다.");
+      return;
+    }
+    
+    // 유형 전환
+    state.currentPart = targetLog.part;
+    
+    // 사이드바 active 원복
+    ui.navItems.forEach(nav => {
+      if (nav.getAttribute('data-part') === targetLog.part) {
+        nav.classList.add('active');
+      } else {
+        nav.classList.remove('active');
+      }
+    });
+    
+    // 메인 컨텐츠 영역 노출
+    document.querySelector('.question-section').classList.remove('hidden');
+    document.querySelector('.control-section').style.setProperty('display', 'grid');
+    document.getElementById('content-dashboard').classList.remove('active');
+    
+    // 피드백 렌더링 복원
+    renderFeedback(targetLog.rawData);
+    
+    // 알림 메시지 
+    console.log("저장된 성적표 복원 성공:", targetLog.timestamp);
+  } catch (err) {
+    alert("성적 복원 중 에러가 발생했습니다: " + err.message);
+  }
 }
 
 // 문서 로드 완료 시 초기화 실행

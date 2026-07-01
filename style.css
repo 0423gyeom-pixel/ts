@@ -2387,5 +2387,157 @@ body {
   line-height: 1.4;
 }
 
+/* 대시보드 레이아웃 스타일 */
+.dashboard-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.stat-card {
+  background: rgba(30, 41, 59, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+.stat-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.stat-value {
+  font-family: var(--font-title);
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
+}
+
+/* 대시보드 이력 테이블 */
+.history-table-container {
+  overflow-x: auto;
+  margin-top: 0.5rem;
+}
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.history-table th {
+  padding: 1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+.history-table td {
+  padding: 1rem;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+}
+.history-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+.btn-restore-history {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-restore-history:hover {
+  background: var(--gradient-main);
+  border-color: transparent;
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.4);
+}
+
+/* 토글 스위치 디자인 */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggle-switch .slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.1);
+  transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.toggle-switch .slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--text-secondary);
+  transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 50%;
+}
+.toggle-switch input:checked + .slider {
+  background: var(--gradient-main);
+  border-color: transparent;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+}
+.toggle-switch input:checked + .slider:before {
+  transform: translateX(20px);
+  background-color: #fff;
+}
+
+/* 실시간 단어 섀도잉 하이라이트 스타일 */
+.word-node {
+  display: inline-block;
+  margin: 0 0.15em;
+  padding: 0.05em 0.15em;
+  color: var(--text-muted);
+  border-radius: 3px;
+  transition: all 0.25s ease;
+}
+.word-node.match-correct {
+  color: #10b981 !important;
+  font-weight: 700;
+  text-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
+  background: rgba(16, 185, 129, 0.08);
+}
+.word-node.match-current {
+  color: #a855f7 !important;
+  font-weight: 800;
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px dashed rgba(168, 85, 247, 0.5);
+  animation: pulseGradual 1.5s infinite ease-in-out;
+}
+@keyframes pulseGradual {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; filter: brightness(1.2); }
+}
+
 
 
