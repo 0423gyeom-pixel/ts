@@ -1,5 +1,11 @@
 // app.js - 토익스피킹 AI 발음 및 답변 연습 웹 애플리케이션 코어 로직
 
+// 전역 런타임 자바스크립트 오류 포착기
+window.onerror = function(message, source, lineno, colno, error) {
+  alert(`[JS 에러 감지]\n메시지: ${message}\n소스: ${source}\n라인: ${lineno}, 열: ${colno}\n상세: ${error ? error.stack : 'N/A'}`);
+  return false;
+};
+
 // 전역 상태 관리 객체
 const state = {
   currentPart: 'part1', // 'part1' ~ 'part5'
