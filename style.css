@@ -885,7 +885,10 @@ body {
 /* 조작 버튼 그룹 */
 .action-buttons {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
+  width: 100%;
 }
 
 .btn {
@@ -2304,25 +2307,35 @@ body {
 }
 
 /* 실시간 오디오 캔버스 스타일링 */
+.visualizer-wrapper {
+  flex: 1;
+  min-width: 150px;
+  max-width: 400px;
+  height: 42px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  border-radius: var(--radius-md);
+  background: rgba(168, 85, 247, 0.03);
+  border: 1px solid rgba(168, 85, 247, 0.08);
+  box-shadow: inset 0 0 10px rgba(168, 85, 247, 0.05);
+  padding: 0 0.5rem;
+  overflow: hidden;
+}
+
 #audio-visualizer {
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
   height: 100%;
-  border-radius: inherit;
   pointer-events: none;
-  z-index: 1;
-  opacity: 0.75;
+  opacity: 0.85;
 }
 
 .mic-status-container {
   position: relative;
-  overflow: hidden;
 }
 .mic-icon-wrapper, .mic-info {
   position: relative;
-  z-index: 2;
 }
 
 /* API Key 무료 발급 가이드 전용 CSS */
