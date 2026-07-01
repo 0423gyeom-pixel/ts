@@ -629,8 +629,15 @@ function bindEvents() {
         // 즐겨찾기 보관함 진입 시
         renderFavoritesList();
         
-        // 문제 카드와 하단 스피치 컨트롤 패널, 피드백 가림
-        document.querySelector('.question-section').classList.add('hidden');
+        // 문제 카드 내부 문제 전용 요소들 가림 (전체 카드는 유지하여 스크롤 보존)
+        const wrapper = document.querySelector('.question-selector-wrapper');
+        const box = document.querySelector('.instruction-box');
+        const div = document.querySelector('.question-section .divider');
+        if (wrapper) wrapper.classList.add('hidden');
+        if (box) box.classList.add('hidden');
+        if (div) div.classList.add('hidden');
+        
+        // 하단 컨트롤 패널, 피드백 가림
         document.querySelector('.control-section').classList.add('hidden');
         ui.feedbackSection.classList.add('hidden');
         
@@ -644,8 +651,15 @@ function bindEvents() {
         // 나의 성적 대시보드 진입 시
         renderDashboard();
         
-        // 문제 카드와 하단 스피치 컨트롤 패널, 피드백 가림
-        document.querySelector('.question-section').classList.add('hidden');
+        // 문제 카드 내부 문제 전용 요소들 가림 (전체 카드는 유지하여 스크롤 보존)
+        const wrapper = document.querySelector('.question-selector-wrapper');
+        const box = document.querySelector('.instruction-box');
+        const div = document.querySelector('.question-section .divider');
+        if (wrapper) wrapper.classList.add('hidden');
+        if (box) box.classList.add('hidden');
+        if (div) div.classList.add('hidden');
+        
+        // 하단 컨트롤 패널, 피드백 가림
         document.querySelector('.control-section').classList.add('hidden');
         ui.feedbackSection.classList.add('hidden');
         
@@ -659,7 +673,14 @@ function bindEvents() {
         state.currentQuestionIndex = 0;
         state.subQuestionIndex = 0;
         
-        // 숨겼던 문제 카드와 컨트롤 패널 복원
+        // 숨겼던 문제 카드 내부 요소들 및 컨트롤 패널 복원
+        const wrapper = document.querySelector('.question-selector-wrapper');
+        const box = document.querySelector('.instruction-box');
+        const div = document.querySelector('.question-section .divider');
+        if (wrapper) wrapper.classList.remove('hidden');
+        if (box) box.classList.remove('hidden');
+        if (div) div.classList.remove('hidden');
+        
         document.querySelector('.question-section').classList.remove('hidden');
         document.querySelector('.control-section').classList.remove('hidden');
         
