@@ -1706,6 +1706,7 @@ function runPart4FlowSingle(data) {
       });
     });
   });
+});
 }
 
 // 질문 읽어주는 TTS 래퍼 함수 (가상 딜레이 포함)
