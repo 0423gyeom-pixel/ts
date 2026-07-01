@@ -399,6 +399,13 @@ function init() {
     }
   });
   updateApiBadge();
+
+  // API Key가 없으면 3초 원클릭 가이드 모달 자동 활성화
+  if (!state.apiKey) {
+    setTimeout(() => {
+      ui.settingsModal.classList.add('active');
+    }, 800);
+  }
   
   // 문제 데이터 병합 바인딩 (questions.js + 로컬 저장소 동적 문제)
   const baseQuestions = window.toeicSpeakingQuestions || window.TOEIC_SPEAKING_QUESTIONS || { part1: [], part2: [], part3: [], part4: [], part5: [] };
