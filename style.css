@@ -1600,6 +1600,43 @@ body {
     flex: 1 !important;
     justify-content: center !important;
   }
+
+  /* 모바일 모달 한눈에 들어오는 가독성 튜닝 */
+  .modal-content {
+    max-height: 90vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+  .modal-body {
+    overflow-y: auto !important;
+    flex: 1 !important;
+    padding-right: 0.25rem !important;
+  }
+  .api-guide-steps {
+    gap: 0.35rem !important;
+  }
+  .btn-deeplink {
+    padding: 0.4rem 0.8rem !important;
+    font-size: 0.8rem !important;
+    margin: 0.25rem 0 !important;
+  }
+  .api-step {
+    gap: 0.35rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+  .api-step .step-text {
+    font-size: 0.8rem !important;
+  }
+  .form-group {
+    gap: 0.35rem !important;
+  }
+  .modal-divider {
+    margin: 0.75rem 0 !important;
+  }
+  .modal-privacy-note {
+    font-size: 0.7rem !important;
+  }
   
   .part4-layout {
     grid-template-columns: 1fr;
