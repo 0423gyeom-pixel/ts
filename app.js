@@ -637,6 +637,12 @@ function bindEvents() {
         if (box) box.classList.add('hidden');
         if (div) div.classList.add('hidden');
         
+        // 상단 제목(header-left) 및 마이크 가이드 배너 숨김
+        const headerLeft = document.querySelector('.header-left');
+        const micBanner = document.querySelector('.mic-guide-banner');
+        if (headerLeft) headerLeft.classList.add('hidden');
+        if (micBanner) micBanner.classList.add('hidden');
+        
         // 하단 컨트롤 패널, 피드백 가림
         document.querySelector('.control-section').classList.add('hidden');
         ui.feedbackSection.classList.add('hidden');
@@ -659,6 +665,12 @@ function bindEvents() {
         if (box) box.classList.add('hidden');
         if (div) div.classList.add('hidden');
         
+        // 상단 제목(header-left) 및 마이크 가이드 배너 숨김
+        const headerLeft = document.querySelector('.header-left');
+        const micBanner = document.querySelector('.mic-guide-banner');
+        if (headerLeft) headerLeft.classList.add('hidden');
+        if (micBanner) micBanner.classList.add('hidden');
+        
         // 하단 컨트롤 패널, 피드백 가림
         document.querySelector('.control-section').classList.add('hidden');
         ui.feedbackSection.classList.add('hidden');
@@ -680,6 +692,12 @@ function bindEvents() {
         if (wrapper) wrapper.classList.remove('hidden');
         if (box) box.classList.remove('hidden');
         if (div) div.classList.remove('hidden');
+        
+        // 상단 제목 및 마이크 가이드 배너 복원
+        const headerLeft = document.querySelector('.header-left');
+        const micBanner = document.querySelector('.mic-guide-banner');
+        if (headerLeft) headerLeft.classList.remove('hidden');
+        if (micBanner) micBanner.classList.remove('hidden');
         
         document.querySelector('.question-section').classList.remove('hidden');
         document.querySelector('.control-section').classList.remove('hidden');
