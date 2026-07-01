@@ -283,9 +283,10 @@ const baseQuestions = {
   ]
 };
 
-// 브라우저에서 읽을 수 있도록 전역 객체 바인딩
+// 브라우저에서 읽을 수 있도록 전역 객체 바인딩 (두 대소문자 표기법 호환 지원)
 if (typeof window !== 'undefined') {
   window.TOEIC_SPEAKING_QUESTIONS = baseQuestions;
+  window.toeicSpeakingQuestions = baseQuestions;
 }
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = baseQuestions;

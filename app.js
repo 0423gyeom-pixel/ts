@@ -377,7 +377,7 @@ const ui = {
 // 1. 애플리케이션 초기화
 function init() {
   // questions.js 로드 검증 자가 진단
-  if (!window.toeicSpeakingQuestions) {
+  if (!window.toeicSpeakingQuestions && !window.TOEIC_SPEAKING_QUESTIONS) {
     alert("[시스템 알림] questions.js(기본 문제 데이터)가 정상적으로 로드되지 않았습니다!\n깃허브 저장소에 'questions.js' 파일이 소문자로 정확히 업로드되어 있는지 확인해 주세요.");
   }
 
@@ -401,7 +401,7 @@ function init() {
   updateApiBadge();
   
   // 문제 데이터 병합 바인딩 (questions.js + 로컬 저장소 동적 문제)
-  const baseQuestions = window.toeicSpeakingQuestions || { part1: [], part2: [], part3: [], part4: [], part5: [] };
+  const baseQuestions = window.toeicSpeakingQuestions || window.TOEIC_SPEAKING_QUESTIONS || { part1: [], part2: [], part3: [], part4: [], part5: [] };
   
   // 예제 문제에 고유 ID 부여 (base-[part]-[idx])
   Object.keys(baseQuestions).forEach(part => {
