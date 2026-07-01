@@ -2308,10 +2308,8 @@ body {
 
 /* 실시간 오디오 캔버스 스타일링 */
 .visualizer-wrapper {
-  flex: 1;
-  min-width: 150px;
-  max-width: 400px;
-  height: 42px;
+  flex: 0 0 240px;
+  height: 38px;
   position: relative;
   display: flex;
   align-items: center;
@@ -2333,6 +2331,10 @@ body {
 
 .mic-status-container {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  width: 100%;
 }
 .mic-icon-wrapper, .mic-info {
   position: relative;

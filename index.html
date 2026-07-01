@@ -339,6 +339,11 @@
               <!-- 실시간 음성 인식(STT) 자막 -->
               <span id="stt-live-preview">말씀하시면 여기에 실시간으로 텍스트가 표시됩니다...</span>
             </div>
+            
+            <!-- 마이크 텍스트 오른쪽 빈 여백에 단정히 정렬되는 실시간 음성 파형 -->
+            <div class="visualizer-wrapper">
+              <canvas id="audio-visualizer"></canvas>
+            </div>
           </div>
 
           <div class="action-buttons">
@@ -358,11 +363,6 @@
               <i data-lucide="sparkles"></i>
               <span>AI 답변 분석</span>
             </button>
-            
-            <!-- 버튼 그룹 우측 여백에 단정히 정렬되는 실시간 음성 파형 비주얼라이저 -->
-            <div class="visualizer-wrapper">
-              <canvas id="audio-visualizer"></canvas>
-            </div>
           </div>
         </div>
       </section>
@@ -576,7 +576,7 @@
   </button>
 
   <!-- JS 불러오기 (캐시 강제 초기화 적용) -->
-  <script src="questions.js?v=20260701_50"></script>
-  <script src="app.js?v=20260701_50"></script>
+  <script src="questions.js?v=20260701_55"></script>
+  <script src="app.js?v=20260701_55"></script>
 </body>
 </html>
